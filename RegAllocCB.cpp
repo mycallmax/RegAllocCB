@@ -358,7 +358,7 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
   // Estimate the spill cost
   spillcostcalculus();
   // k-coloring
-  K_color = 5;
+  K_color = 8;
   kcolorbygraphprunning(K_color);
   
   //edit VRM
@@ -518,16 +518,49 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
         //DEBUG(dbgs() << "Phy class 0 num is  " << cur_class->getNumRegs() << " "<<cur_class->getName()<<"\n");
         //DEBUG(dbgs() << "Phy class 1 num is  " << TRI->getRegClass(1)->getNumRegs() << "\n");
         //DEBUG(dbgs() << "Is allocable "<<cur_class->isAllocatable()<<"\n"); 
-        //DEBUG(dbgs() << "Phy class 0 #0 is  " << cur_class->getRegister(0) << "\n");
-        //DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(1) << "\n");
-        unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+1);
+        //DEBUG(dbgs() << "Phy class 0 #0 is  " << gp_class->getRegister(0) << "\n");
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(0)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(1)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(2)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(3)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(4)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(5)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(6)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(7)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(8)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(9)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(10)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(11)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(12)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(13)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(14)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(15)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(16)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(17)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(18)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(19)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(20)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(21)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(22)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(23)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(24)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(25)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(26)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(27)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(28)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(29)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(30)) << "\n"); //25-T9
+        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(31)) << "\n"); //24-T8
+        unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+8);
         VRM->assignVirt2Phys(VirtReg, PhysReg);
+        //assert(0 && "intentional stop");
      }
      else
      {
         //Spill
+        //DEBUG(dbgs() << "-------------SPILL "  << "\n"); //24-T8
         unsigned ss = VRM->assignVirt2StackSlot(VirtReg);
-        
+        unsigned index_flag = 0; 
         for (MachineRegisterInfo::reg_iterator regItr = MRI->reg_begin(VirtReg); regItr != MRI->reg_end();)  
         {
            MachineInstr *mi = &*regItr;  
@@ -535,46 +568,58 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
                  ++regItr;
            } while (regItr != MRI->reg_end() && (&*regItr == mi));
  
-         SmallVector<unsigned, 2> indices;
-         bool hasUse = false;
-         bool hasDef = false;
-         for (unsigned i = 0; i != mi->getNumOperands(); ++i) 
-         {
-            MachineOperand &op = mi->getOperand(i);
-            if (!op.isReg() || op.getReg() != VirtReg)
-              continue;
-            hasUse |= mi->getOperand(i).isUse();
-            hasDef |= mi->getOperand(i).isDef();
-            indices.push_back(i);
-         }
-         for (unsigned i = 0; i < indices.size(); ++i) 
-         {
-            unsigned mopIdx = indices[i];
-            MachineOperand &mop = mi->getOperand(mopIdx);
-            mop.setReg(3);
-            if (mop.isUse() && !mi->isRegTiedToDefOperand(mopIdx)) 
-            {
-              mop.setIsKill(true);
-            }
-         }
-         assert(hasUse || hasDef);
-         MachineBasicBlock::iterator miItr(mi);
-         const TargetRegisterClass *trc = MRI->getRegClass(VirtReg);
-        if (hasUse) 
-        {
-           TII->loadRegFromStackSlot(*mi->getParent(), miItr, 3, ss, trc,TRI);
-           //MachineInstr *loadInstr(prior(miItr));
-           //SlotIndex loadIndex =
-           //  lis->InsertMachineInstrInMaps(loadInstr).getRegSlot();
-           //SlotIndex endIndex = loadIndex.getNextIndex();
-           //VNInfo *loadVNI =
-           //  newLI->getNextValue(loadIndex, lis->getVNInfoAllocator());
-           //newLI->addRange(LiveRange(loadIndex, endIndex, loadVNI));
-        }
-        if (hasDef) 
-        {
-           TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), 3, true, ss, trc, TRI);
-        }
+           SmallVector<unsigned, 2> indices;
+           bool hasUse = false;
+           bool hasDef = false;
+           for (unsigned i = 0; i != mi->getNumOperands(); ++i) 
+           {
+              MachineOperand &op = mi->getOperand(i);
+              if (!op.isReg() || op.getReg() != VirtReg)
+                continue;
+              hasUse |= mi->getOperand(i).isUse();
+              hasDef |= mi->getOperand(i).isDef();
+              indices.push_back(i);
+              index_flag = i;
+           }
+           
+           for (unsigned i = 0; i < indices.size(); ++i) 
+           {
+              unsigned mopIdx = indices[i];
+              MachineOperand &mop = mi->getOperand(mopIdx);
+              if(index_flag == 2)
+                mop.setReg(gp_class->getRegister(23));
+              else
+                mop.setReg(gp_class->getRegister(22));
+              if (mop.isUse() && !mi->isRegTiedToDefOperand(mopIdx)) 
+              {
+                mop.setIsKill(true);
+              }
+           }
+           assert(hasUse || hasDef);
+           MachineBasicBlock::iterator miItr(mi);
+           const TargetRegisterClass *trc = MRI->getRegClass(VirtReg);
+           if (hasUse) 
+           {
+              
+              if(index_flag == 2)
+                DEBUG(dbgs() << "next register--LLY  "  << "\n"); //24-T8
+                  
+              if(index_flag == 2)
+                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(23), ss, trc,TRI);
+              else
+                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(22), ss, trc,TRI);
+              //MachineInstr *loadInstr(prior(miItr));
+              //SlotIndex loadIndex =
+              //  lis->InsertMachineInstrInMaps(loadInstr).getRegSlot();
+              //SlotIndex endIndex = loadIndex.getNextIndex();
+              //VNInfo *loadVNI =
+              //  newLI->getNextValue(loadIndex, lis->getVNInfoAllocator());
+              //newLI->addRange(LiveRange(loadIndex, endIndex, loadVNI));
+           }
+           if (hasDef) 
+           {
+              TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(22), true, ss, trc, TRI);
+           }
 
         }
         DEBUG(dbgs() << "Virt register  " <<(*it).first<<" is assigned stack slot "<<ss<< "\n");
