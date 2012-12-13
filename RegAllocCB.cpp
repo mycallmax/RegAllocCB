@@ -88,7 +88,6 @@ namespace {
     LiveRegRange(unsigned reg, LiveRange *range) : reg(reg), range(range) {};
 
     unsigned getReg() const { return reg; }
-
     LiveRange* getLiveRange() const { return range; }
 
     bool operator==(const LiveRegRange &b) const {
@@ -104,7 +103,7 @@ namespace {
 
     void print(raw_ostream &os) const {
       if (TRI) {
-        os << "  Reg: " << PrintReg(reg, TRI) << " Range: " << *range;
+        os << "  (" << PrintReg(reg, TRI) << ",\t" << *range << ") ";
       }
     }
   };
@@ -139,7 +138,7 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   BitVector UsableRegs;
 
   // Interference Graph (adjacency list)
-  typedef std::vector< std::list< unsigned > > InterferenceGraph;
+  typedef std::map< LiveRegRange, std::list< LiveRegRange > > InterferenceGraph;
   InterferenceGraph IG;
 
 public:
@@ -386,24 +385,29 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
 }
 
 void RAChaitinBriggs::addInterference(LiveRegRange DefReg, LiveRegSet &LiveRegs) {
-//  assert(TargetRegisterInfo::isVirtualRegister(DefReg.Reg) &&
-//         "The register to be added into interference graph is not virtual");
-//  for (LiveRegMap::iterator LRi = LiveRegs.begin(), LRe = LiveRegs.end();
-//       LRi != LRe; LRi++) {
-//    unsigned idx1 = TargetRegisterInfo::virtReg2Index(DefReg.Reg);
-//    unsigned idx2 = TargetRegisterInfo::virtReg2Index(LRi->Reg);
-//    if (idx1 == idx2) continue;
-//    DEBUG(dbgs() << PrintReg(DefReg.Reg, TRI) << " interferes with " << PrintReg(LRi->Reg, TRI) << "\n");
-//    IG[idx1].push_back(idx2);
-//    IG[idx2].push_back(idx1);
-//  }
+  assert(TargetRegisterInfo::isVirtualRegister(DefReg.getReg()) &&
+         "The register to be added into interference graph is not virtual");
+  for (LiveRegSet::iterator LRi = LiveRegs.begin(), LRe = LiveRegs.end();
+       LRi != LRe; LRi++) {
+      if (DefReg == *LRi) {
+        continue;
+      }
+    DEBUG(dbgs() << DefReg << " interferes with " << *LRi << "\n");
+    IG[DefReg].push_back(*LRi);
+    IG[*LRi].push_back(DefReg);
+  }
 }
 
 void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
 
   // Initialization
-  IG.resize(MRI->getNumVirtRegs());
   LiveRegRange::TRI = TRI;
+
+  for (TargetRegisterInfo::regclass_iterator RCi = TRI->regclass_begin(), RCe = TRI->regclass_end(); RCi != RCe; ++RCi) {
+    DEBUG(dbgs() << (*RCi)->getNumRegs() << "\n");
+  }
+
+  assert(0 && "Intentional stop");
 
   // Loop over all of the basic blocks
   for (MachineFunction::iterator MBBi = mf.begin(), MBBe = mf.end();
@@ -423,6 +427,10 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
 
       // See if Reg is in the LivOut Set of the MBBi
       LiveInterval &LI = LIS->getInterval(Reg);
+//      DEBUG(dbgs() << "Live Interval: " << LI << "\n");
+//      for (LiveInterval::iterator LRi= LI.begin(), LRe = LI.end(); LRi != LRe; ++LRi) {
+//        DEBUG(dbgs() << "  Live Range: " << *LRi << "\n");
+//      }
       if (LI.liveAt(LiveOutIdx)) {
         LiveInterval::iterator LR = LI.find(LiveOutIdx);
         assert(LIS->isLiveOutOfMBB(LI, MBBi) == true);
@@ -449,46 +457,54 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
       DEBUG(dbgs() << "\n");
 
       // Look at all operands of the current instruction
+      SlotIndex InstrIdx = LIS->getInstructionIndex(&*MIi);
       for (unsigned i = 0; i != MIi->getNumOperands(); ++i) {
         MachineOperand &op = MIi->getOperand(i);
 
         // Continue if it's not a register
-        if (!op.isReg())
+        if (!op.isReg() || !TRI->isVirtualRegister(op.getReg()))
           continue;
-//        
-//        // If the register is defined,
-//        // it interferes with all registers within LiveRegs
-//        if (op.isDef()) {
-//          DEBUG(dbgs() << "[def] op" << i << ": " << op << "\n");
-//          unsigned def_reg = op.getReg();
-//          LiveReg DefReg(def_reg);
-//          if (TRI->isVirtualRegister(def_reg)) { // TODO: remove this check
-//            this->addInterference(DefReg, LiveRegs);
-//            LiveRegs.erase(DefReg.getSparseSetIndex());
-//          }
-//        }
-//
-//        // Update the LiveRegs for the next instruction
-//        if (op.isUse()) {
-//          DEBUG(dbgs() << "[use] op" << i << ": " << op << "\n");
-//          unsigned use_reg = op.getReg();
-//          if (TRI->isVirtualRegister(use_reg)) { // TODO: remove this check
-//            LiveRegs.insert(LiveReg(use_reg));
-//          }
-//        }
+
+        unsigned reg = op.getReg();
+        LiveInterval &LI = LIS->getInterval(reg);
+        LiveInterval::iterator LR = LI.find(InstrIdx);
+        assert(LR != LI.end() && "No live range for the register");
+        
+        // If the register is defined,
+        // it interferes with all registers within LiveRegs
+        if (op.isDef()) {
+          DEBUG(dbgs() << "[def] op" << i << ": " << op << "\n");
+          LiveRegRange def_reg(reg, LR);
+          this->addInterference(def_reg, LiveRegs);
+          LiveRegs.erase(def_reg);
+        }
+
+        // Update the LiveRegs for the next instruction
+        if (op.isUse()) {
+          DEBUG(dbgs() << "[use] op" << i << ": " << op << "\n");
+          LiveRegRange use_reg(reg, LR);
+          LiveRegs.insert(use_reg);
+        }
       }
     }
-//
-//    // Print out the interference graph after visiting all basic blocks
-//    for (InterferenceGraph::iterator IGi = IG.begin(), IGe = IG.end();
-//         IGi != IGe; IGi++) {
-//      DEBUG(dbgs() << PrintReg(TargetRegisterInfo::index2VirtReg(IGi - IG.begin()), TRI) << " interferes with ");
-//      for (std::list< unsigned >::iterator IGLi = IGi->begin(), IGLe = IGi->end();
-//           IGLi != IGLe; IGLi++) {
-//        DEBUG(dbgs() << " " << PrintReg(TargetRegisterInfo::index2VirtReg(*IGLi), TRI));
-//      }
-//      DEBUG(dbgs() << "\n");
-//    }
+
+    // Print out the interference graph after visiting all basic blocks
+    DEBUG(dbgs() << "Interference Graph Result:\n");
+    int counter = 0;
+    for (InterferenceGraph::iterator IGi = IG.begin(), IGe = IG.end();
+         IGi != IGe; IGi++) {
+      DEBUG(dbgs() << IGi->first << " interferes with\n");
+      for (std::list< LiveRegRange >::iterator IGLi = (IGi->second).begin(), IGLe = (IGi->second).end();
+           IGLi != IGLe; IGLi++) {
+        counter++;
+        DEBUG(dbgs() << *IGLi);
+        if (counter % 4 != 0)
+          DEBUG(dbgs() << "\t");
+        else
+          DEBUG(dbgs() << "\n");
+      }
+      DEBUG(dbgs() << "\n");
+    }
   }
   assert(0 && "intentional stop");
   return;
