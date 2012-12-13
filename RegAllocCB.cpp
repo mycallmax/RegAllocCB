@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "regalloc"
+
 #include "AllocationOrder.h"
 #include "RegAllocBase.h"
 #include "LiveDebugVariables.h"
@@ -29,6 +30,7 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/Target/TargetMachine.h"
@@ -36,12 +38,13 @@
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/SparseSet.h"
 
 #include <cstdlib>
 #include <queue>
-#include <set>
+#include <map>
 #include <list>
-
+#include <stack>
 using namespace llvm;
 
 static RegisterRegAlloc basicRegAlloc("chaitin_briggs", "Chaitin-Briggs register allocator",
@@ -54,68 +57,29 @@ namespace {
     }
   };
 
-//  // Everything we know about a live virtual register.
-//  class LiveReg {
-//  public:
-//    static unsigned PhyRegsNum;
-//    unsigned Reg;
-//
-//    explicit LiveReg(unsigned v)
-//      : Reg(v) {}
-//
-//    unsigned getSparseSetIndex() const {
-//      if (TargetRegisterInfo::isVirtualRegister(Reg)) {
-//        return PhyRegsNum + TargetRegisterInfo::virtReg2Index(Reg);
-//      } else {
-//        return Reg;
-//      }
-//    }
-//
-//    bool operator<(const LiveReg& b) const {
-//      return Reg < b.Reg;
-//    }
-//  };
-//  typedef SparseSet<LiveReg> LiveRegMap;
-//  unsigned LiveReg::PhyRegsNum = 1000;
-
-  class LiveRegRange {
-    unsigned reg;
-    LiveRange *range;
-
+  // Everything we know about a live virtual register.
+  class LiveReg {
   public:
-    static const TargetRegisterInfo *TRI;
+    static unsigned PhyRegsNum;
+    unsigned Reg;
 
-    LiveRegRange(unsigned reg, LiveRange *range) : reg(reg), range(range) {};
+    explicit LiveReg(unsigned v)
+      : Reg(v) {}
 
-    unsigned getReg() const { return reg; }
-
-    LiveRange* getLiveRange() const { return range; }
-
-    bool operator==(const LiveRegRange &b) const {
-      return reg == b.reg && *range == *(b.range);
-    }
-
-    bool operator<(const LiveRegRange &b) const {
-      if (reg != b.reg)
-        return reg < b.reg;
-      else
-        return *range < *(b.range);
-    }
-
-    void print(raw_ostream &os) const {
-      if (TRI) {
-        os << "  Reg: " << PrintReg(reg, TRI) << " Range: " << *range;
+    unsigned getSparseSetIndex() const {
+      if (TargetRegisterInfo::isVirtualRegister(Reg)) {
+        return PhyRegsNum + TargetRegisterInfo::virtReg2Index(Reg);
+      } else {
+        return Reg;
       }
     }
+
+    bool operator<(const LiveReg& b) const {
+      return Reg < b.Reg;
+    }
   };
-
-  raw_ostream& operator<<(raw_ostream& os, const LiveRegRange &LRR) {
-    LRR.print(os);
-    return os;
-  }
-
-  typedef std::set< LiveRegRange > LiveRegSet;
-  const TargetRegisterInfo *LiveRegRange::TRI = NULL;
+  typedef SparseSet<LiveReg> LiveRegMap;
+  unsigned LiveReg::PhyRegsNum = 1000;
 }
 
 namespace {
@@ -129,6 +93,9 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   // context
   MachineFunction *MF;
 
+
+  //
+  const TargetInstrInfo *TII;
   // state
   std::auto_ptr<Spiller> SpillerInstance;
   std::priority_queue<LiveInterval*, std::vector<LiveInterval*>,
@@ -141,6 +108,14 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   // Interference Graph (adjacency list)
   typedef std::vector< std::list< unsigned > > InterferenceGraph;
   InterferenceGraph IG;
+
+  std::map<int, int> SpillCost;
+
+  std::stack<unsigned> Color_Node_Stack;
+
+  int K_color;
+  //0-(K-1) colors and K means spilling.
+  std::map<unsigned, int> Color_Result;
 
 public:
   RAChaitinBriggs();
@@ -186,8 +161,13 @@ public:
   // Build the interference graph
   void buildInterferenceGraph(MachineFunction &mf);
   // Add interference caused by the definition of DefReg
-  void addInterference(LiveRegRange DefReg, LiveRegSet &LiveRegs);
+  void addInterference(LiveReg DefReg, LiveRegMap &LiveRegs);
 
+  //k-color the interference graph by graph prunning
+  void kcolorbygraphprunning(int K_color);
+  void spillcostcalculus();
+  void assignvir2phy(MachineFunction &mf);
+  //int pick_spill_candidate();
   static char ID;
 };
 
@@ -366,6 +346,7 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
                << mf.getName() << '\n');
 
   MF = &mf;
+  TII = mf.getTarget().getInstrInfo();
   RegAllocBase::init(getAnalysis<VirtRegMap>(),
                      getAnalysis<LiveIntervals>(),
                      getAnalysis<LiveRegMatrix>());
@@ -375,9 +356,15 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
   buildInterferenceGraph(mf);
   
   // Estimate the spill cost
-  
+  spillcostcalculus();
   // k-coloring
-
+  K_color = 5;
+  kcolorbygraphprunning(K_color);
+  
+  //edit VRM
+  //
+  assignvir2phy(mf);
+  
   // Diagnostic output before rewriting
   DEBUG(dbgs() << "Post alloc VirtRegMap:\n" << *VRM << "\n");
 
@@ -385,51 +372,255 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
   return true;
 }
 
-void RAChaitinBriggs::addInterference(LiveRegRange DefReg, LiveRegSet &LiveRegs) {
-//  assert(TargetRegisterInfo::isVirtualRegister(DefReg.Reg) &&
-//         "The register to be added into interference graph is not virtual");
-//  for (LiveRegMap::iterator LRi = LiveRegs.begin(), LRe = LiveRegs.end();
-//       LRi != LRe; LRi++) {
-//    unsigned idx1 = TargetRegisterInfo::virtReg2Index(DefReg.Reg);
-//    unsigned idx2 = TargetRegisterInfo::virtReg2Index(LRi->Reg);
-//    if (idx1 == idx2) continue;
-//    DEBUG(dbgs() << PrintReg(DefReg.Reg, TRI) << " interferes with " << PrintReg(LRi->Reg, TRI) << "\n");
-//    IG[idx1].push_back(idx2);
-//    IG[idx2].push_back(idx1);
-//  }
+void RAChaitinBriggs::spillcostcalculus()
+{
+  //calculate the spillcost
+  //std::map<int, int> SpillCost;
+  for (InterferenceGraph::iterator IGi = IG.begin(), IGe = IG.end();  IGi != IGe; IGi++)
+  {
+    //TBD: using formulas to calculate the spill cost
+    //Fix it as 100 now.
+    SpillCost.insert(std::pair<int,int>(IGi-IG.begin() ,100)); 
+  }  
+}
+
+
+void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
+{
+   //Input: 
+   //typedef std::vector< std::list< unsigned > > InterferenceGraph;
+   //InterferenceGraph IG;
+   //Output:
+   //std::map<unsigned, int> Color_Result;
+
+   //make another copy of IG for future color step 
+   DEBUG(dbgs() << "Start to color all registers \n");
+   std::map<int, std::list<unsigned> > IG_copy;
+      
+    for (InterferenceGraph::iterator IGi = IG.begin(), IGe = IG.end();  IGi != IGe; IGi++) 
+    {
+      if((*IGi).size()==0)
+       Color_Node_Stack.push((unsigned)(IGi-IG.begin()));
+        
+      for (std::list< unsigned >::iterator IGLi = IGi->begin(), IGLe = IGi->end();IGLi != IGLe; IGLi++) 
+         IG_copy[IGi-IG.begin()].push_back(*IGLi);
+    }
+   
+   //recording the removed nodes from IG
+   //std::set<unsigned> removed_node;
+   
+   while(IG_copy.size()!=0)
+   {
+     int cur_node = -1;
+     std::map<int, std::list<unsigned> >::iterator itmap;
+     for ( itmap=IG_copy.begin() ; itmap != IG_copy.end(); itmap++ )
+     {
+       if((*itmap).second.size() < (unsigned)K_color)
+       {
+         cur_node = (*itmap).first;
+         break;
+       }    
+     } 
+     //pick a spill candidate
+     if(cur_node ==-1)
+     {
+       //cur_node =  pick_spill_candidate();
+       //compute the current degree for every remaining node
+       double spill_cost = -1;
+    
+       for ( itmap=IG_copy.begin() ; itmap != IG_copy.end(); itmap++ )
+       {
+          //current degree
+          int cost = SpillCost[(*itmap).first];  
+          int degree = (*itmap).second.size();
+          double tmp_spill_cost =  (double)cost/(double)degree;
+          if(spill_cost == -1)
+          {
+             spill_cost = tmp_spill_cost;
+             cur_node = (*itmap).first;         
+          }
+          else if(tmp_spill_cost<spill_cost)
+          {
+             spill_cost = tmp_spill_cost;
+             cur_node = (*itmap).first;         
+          }
+       }
+     }
+
+     Color_Node_Stack.push((unsigned)cur_node);
+     //remove all adjacent edges from IG
+     std::list<unsigned>::iterator it;
+     for(it = IG_copy[cur_node].begin(); it!=IG_copy[cur_node].end(); it++)
+     {
+       int reachnode =(int)(*it);
+       IG_copy[reachnode].remove(cur_node);    
+     } 
+     //remove the Node
+     IG_copy[cur_node].clear();
+     IG_copy.erase(cur_node);
+   }
+
+   //std::stack<unsigned> Color_Node_Stack;
+   //start to color the IG graph
+   //std::map<unsigned, int> Color_Result;
+   std::set<int> Color_Set;
+   while(!Color_Node_Stack.empty())
+   {
+     unsigned cur_color_node = Color_Node_Stack.top();
+     Color_Node_Stack.pop();
+     //fill the full color set 
+     //std::set<int>::iterator it; 
+     for(int i=0; i<K_color; i++)
+       Color_Set.insert(i); 
+     //delete available color by checking its adjacent color 
+     InterferenceGraph::iterator IGi = IG.begin() + cur_color_node; 
+     for (std::list< unsigned >::iterator IGLi = IGi->begin(), IGLe = IGi->end();IGLi != IGLe; IGLi++) 
+     {
+       if((Color_Result.find(*IGLi)!=Color_Result.end())&&(Color_Set.count(Color_Result[*IGLi])!=0))
+         Color_Set.erase(Color_Result[*IGLi]);
+     } 
+     //Choose color from the color set
+     if(Color_Set.empty())
+     {
+       //Spill 
+       Color_Result.insert(std::pair<unsigned, int>(cur_color_node, K_color));
+       //Color_Result.insert(std::pair<unsigned, int>(cur_color_node, K_color));
+       DEBUG(dbgs() << "<spill>register " << cur_color_node << "\n");
+     }
+     else
+     {
+       Color_Result.insert(std::pair<unsigned, int>(cur_color_node, *Color_Set.begin()));
+       DEBUG(dbgs() << "register " << cur_color_node << " is colored " << *Color_Set.begin() << "\n");
+       
+     }
+     Color_Set.clear();
+   }
+   //output color result 
+   //assert(0 && "intentional stop");
+}
+
+void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
+{
+  //virtual register to phy register
+  //std::map<unsigned, int> Color_Result;
+  std::map<unsigned, int>::iterator it;
+  const TargetRegisterClass * gp_class = TRI->getRegClass(0);
+  //const TargetInstrInfo *TII = mf.getTarget().getInstrInfo();
+  //const TargetRegisterClass *trc = mri->getRegClass();
+  for(it=Color_Result.begin(); it!=Color_Result.end(); it++)
+  {
+     //
+     //VRM->assignVirt2Phys(VirtReg.reg, PhysReg);
+     unsigned VirtReg = TargetRegisterInfo::index2VirtReg((*it).first);
+     if((*it).second!=K_color)
+     {
+        //BitVector regvec = TRI->getAllocatableSet(mf, TRI->getRegClass(10));
+        //DEBUG(dbgs() << "Phy class 0 num is  " << cur_class->getNumRegs() << " "<<cur_class->getName()<<"\n");
+        //DEBUG(dbgs() << "Phy class 1 num is  " << TRI->getRegClass(1)->getNumRegs() << "\n");
+        //DEBUG(dbgs() << "Is allocable "<<cur_class->isAllocatable()<<"\n"); 
+        //DEBUG(dbgs() << "Phy class 0 #0 is  " << cur_class->getRegister(0) << "\n");
+        //DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(1) << "\n");
+        unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+1);
+        VRM->assignVirt2Phys(VirtReg, PhysReg);
+     }
+     else
+     {
+        //Spill
+        unsigned ss = VRM->assignVirt2StackSlot(VirtReg);
+        
+        for (MachineRegisterInfo::reg_iterator regItr = MRI->reg_begin(VirtReg); regItr != MRI->reg_end();)  
+        {
+           MachineInstr *mi = &*regItr;  
+           do {
+                 ++regItr;
+           } while (regItr != MRI->reg_end() && (&*regItr == mi));
+ 
+         SmallVector<unsigned, 2> indices;
+         bool hasUse = false;
+         bool hasDef = false;
+         for (unsigned i = 0; i != mi->getNumOperands(); ++i) 
+         {
+            MachineOperand &op = mi->getOperand(i);
+            if (!op.isReg() || op.getReg() != VirtReg)
+              continue;
+            hasUse |= mi->getOperand(i).isUse();
+            hasDef |= mi->getOperand(i).isDef();
+            indices.push_back(i);
+         }
+         for (unsigned i = 0; i < indices.size(); ++i) 
+         {
+            unsigned mopIdx = indices[i];
+            MachineOperand &mop = mi->getOperand(mopIdx);
+            mop.setReg(3);
+            if (mop.isUse() && !mi->isRegTiedToDefOperand(mopIdx)) 
+            {
+              mop.setIsKill(true);
+            }
+         }
+         assert(hasUse || hasDef);
+         MachineBasicBlock::iterator miItr(mi);
+         const TargetRegisterClass *trc = MRI->getRegClass(VirtReg);
+        if (hasUse) 
+        {
+           TII->loadRegFromStackSlot(*mi->getParent(), miItr, 3, ss, trc,TRI);
+           //MachineInstr *loadInstr(prior(miItr));
+           //SlotIndex loadIndex =
+           //  lis->InsertMachineInstrInMaps(loadInstr).getRegSlot();
+           //SlotIndex endIndex = loadIndex.getNextIndex();
+           //VNInfo *loadVNI =
+           //  newLI->getNextValue(loadIndex, lis->getVNInfoAllocator());
+           //newLI->addRange(LiveRange(loadIndex, endIndex, loadVNI));
+        }
+        if (hasDef) 
+        {
+           TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), 3, true, ss, trc, TRI);
+        }
+
+        }
+        DEBUG(dbgs() << "Virt register  " <<(*it).first<<" is assigned stack slot "<<ss<< "\n");
+     }
+  }
+  //assert(0 && "intentional stop");
+}
+
+void RAChaitinBriggs::addInterference(LiveReg DefReg, LiveRegMap &LiveRegs) {
+  assert(TargetRegisterInfo::isVirtualRegister(DefReg.Reg) &&
+         "The register to be added into interference graph is not virtual");
+  for (LiveRegMap::iterator LRi = LiveRegs.begin(), LRe = LiveRegs.end();
+       LRi != LRe; LRi++) {
+    unsigned idx1 = TargetRegisterInfo::virtReg2Index(DefReg.Reg);
+    unsigned idx2 = TargetRegisterInfo::virtReg2Index(LRi->Reg);
+    if (idx1 == idx2) continue;
+    DEBUG(dbgs() << PrintReg(DefReg.Reg, TRI) << " interferes with " << PrintReg(LRi->Reg, TRI) << "\n");
+    IG[idx1].push_back(idx2);
+    IG[idx2].push_back(idx1);
+  }
 }
 
 void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
-
-  // Initialization
+  LiveReg::PhyRegsNum = TRI->getNumRegs();
   IG.resize(MRI->getNumVirtRegs());
-  LiveRegRange::TRI = TRI;
-
   // Loop over all of the basic blocks
   for (MachineFunction::iterator MBBi = mf.begin(), MBBe = mf.end();
        MBBi != MBBe; ++MBBi) {
     DEBUG(dbgs() << "Building interference graph on " << *MBBi << "\n");
     
-    // Calculate the Live Out Virtual Register Set (TODO: include physical ones)
-    LiveRegSet LiveRegs;
-    SlotIndex LiveOutIdx = LIS->getMBBEndIdx(MBBi).getPrevSlot();
+    // Calculate the Live Out Virtual Registers (TODO: include physical ones)
+    LiveRegMap LiveRegs;
+    LiveRegs.setUniverse(MRI->getNumVirtRegs() + LiveReg::PhyRegsNum);
     for (unsigned i = 0, e = MRI->getNumVirtRegs(); i != e; ++i) {
       unsigned Reg = TargetRegisterInfo::index2VirtReg(i);
-      if (MRI->reg_nodbg_empty(Reg)) {
-        DEBUG(dbgs() << "Dropping unused " << PrintReg(Reg, TRI) << '\n');
-        LIS->removeInterval(Reg);
+      if (MRI->reg_nodbg_empty(Reg))
         continue;
-      }
-
-      // See if Reg is in the LivOut Set of the MBBi
-      LiveInterval &LI = LIS->getInterval(Reg);
-      if (LI.liveAt(LiveOutIdx)) {
-        LiveInterval::iterator LR = LI.find(LiveOutIdx);
-        assert(LIS->isLiveOutOfMBB(LI, MBBi) == true);
-        DEBUG(dbgs() << "Reg: " << PrintReg(Reg, TRI) << " Range: " << *LR << "\n");
-        LiveRegs.insert(LiveRegRange(Reg, &*LR));
+      if(LIS->isLiveOutOfMBB(LIS->getInterval(Reg), MBBi)) {
+        LiveRegs.insert(LiveReg(Reg));
       }
     }
+//    for (unsigned i = 0, e = TRI->getNumRegs(); i != e; ++i) {
+//      if(LIS->isLiveOutOfMBB(LIS->getInterval(i), MBBi)) {
+//        LiveRegs.insert(LiveReg(i));
+//      }
+//    }
     
     // Traverse backward to calculate the LiveNow for each instruction in
     // the basic block, and then build the interference graph
@@ -442,9 +633,9 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
 
       // Print out the LiveNow registers
       DEBUG(dbgs() << " LiveNow Registers:\n");
-      for (LiveRegSet::iterator I = LiveRegs.begin(), E = LiveRegs.end();
+      for (LiveRegMap::iterator I = LiveRegs.begin(), E = LiveRegs.end();
            I != E; I++) {
-        DEBUG(dbgs() << *I << "\n");
+        DEBUG(dbgs() << "   " << PrintReg(I->Reg, TRI) << "\n");
       }
       DEBUG(dbgs() << "\n");
 
@@ -455,42 +646,42 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
         // Continue if it's not a register
         if (!op.isReg())
           continue;
-//        
-//        // If the register is defined,
-//        // it interferes with all registers within LiveRegs
-//        if (op.isDef()) {
-//          DEBUG(dbgs() << "[def] op" << i << ": " << op << "\n");
-//          unsigned def_reg = op.getReg();
-//          LiveReg DefReg(def_reg);
-//          if (TRI->isVirtualRegister(def_reg)) { // TODO: remove this check
-//            this->addInterference(DefReg, LiveRegs);
-//            LiveRegs.erase(DefReg.getSparseSetIndex());
-//          }
-//        }
-//
-//        // Update the LiveRegs for the next instruction
-//        if (op.isUse()) {
-//          DEBUG(dbgs() << "[use] op" << i << ": " << op << "\n");
-//          unsigned use_reg = op.getReg();
-//          if (TRI->isVirtualRegister(use_reg)) { // TODO: remove this check
-//            LiveRegs.insert(LiveReg(use_reg));
-//          }
-//        }
+        
+        // If the register is defined,
+        // it interferes with all registers within LiveRegs
+        if (op.isDef()) {
+          DEBUG(dbgs() << "[def] op" << i << ": " << op << "\n");
+          unsigned def_reg = op.getReg();
+          LiveReg DefReg(def_reg);
+          if (TRI->isVirtualRegister(def_reg)) { // TODO: remove this check
+            this->addInterference(DefReg, LiveRegs);
+            LiveRegs.erase(DefReg.getSparseSetIndex());
+          }
+        }
+
+        // Update the LiveRegs for the next instruction
+        if (op.isUse()) {
+          DEBUG(dbgs() << "[use] op" << i << ": " << op << "\n");
+          unsigned use_reg = op.getReg();
+          if (TRI->isVirtualRegister(use_reg)) { // TODO: remove this check
+            LiveRegs.insert(LiveReg(use_reg));
+          }
+        }
       }
     }
-//
-//    // Print out the interference graph after visiting all basic blocks
-//    for (InterferenceGraph::iterator IGi = IG.begin(), IGe = IG.end();
-//         IGi != IGe; IGi++) {
-//      DEBUG(dbgs() << PrintReg(TargetRegisterInfo::index2VirtReg(IGi - IG.begin()), TRI) << " interferes with ");
-//      for (std::list< unsigned >::iterator IGLi = IGi->begin(), IGLe = IGi->end();
-//           IGLi != IGLe; IGLi++) {
-//        DEBUG(dbgs() << " " << PrintReg(TargetRegisterInfo::index2VirtReg(*IGLi), TRI));
-//      }
-//      DEBUG(dbgs() << "\n");
-//    }
+
+    // Print out the interference graph after visiting all basic blocks
+    for (InterferenceGraph::iterator IGi = IG.begin(), IGe = IG.end();
+         IGi != IGe; IGi++) {
+      DEBUG(dbgs() << PrintReg(TargetRegisterInfo::index2VirtReg(IGi - IG.begin()), TRI) << " interferes with ");
+      for (std::list< unsigned >::iterator IGLi = IGi->begin(), IGLe = IGi->end();
+           IGLi != IGLe; IGLi++) {
+        DEBUG(dbgs() << " " << PrintReg(TargetRegisterInfo::index2VirtReg(*IGLi), TRI));
+      }
+      DEBUG(dbgs() << "\n");
+    }
   }
-  assert(0 && "intentional stop");
+  //assert(0 && "intentional stop");
   return;
 }
 
