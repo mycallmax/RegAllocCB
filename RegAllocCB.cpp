@@ -358,12 +358,14 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
   // Estimate the spill cost
   spillcostcalculus();
   // k-coloring
-  K_color = 8;
+  K_color = 6;
+  //K_color = 14;
   kcolorbygraphprunning(K_color);
   
   //edit VRM
   //
   assignvir2phy(mf);
+  Color_Result.clear();
   
   // Diagnostic output before rewriting
   DEBUG(dbgs() << "Post alloc VirtRegMap:\n" << *VRM << "\n");
@@ -467,6 +469,8 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
    while(!Color_Node_Stack.empty())
    {
      unsigned cur_color_node = Color_Node_Stack.top();
+     //DEBUG(dbgs() << "cur_color node is  " << cur_color_node <<" reg is "<<PrintReg(TargetRegisterInfo::index2VirtReg(cur_color_node), TRI) << "\n");
+     
      Color_Node_Stack.pop();
      //fill the full color set 
      //std::set<int>::iterator it; 
@@ -489,13 +493,26 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
      }
      else
      {
-       Color_Result.insert(std::pair<unsigned, int>(cur_color_node, *Color_Set.begin()));
-       DEBUG(dbgs() << "register " << cur_color_node << " is colored " << *Color_Set.begin() << "\n");
+       
+       //DEBUG(dbgs() << "register " << cur_color_node << "\n");
+       Color_Result.insert(std::pair<unsigned, int>(cur_color_node, *(Color_Set.begin())));
+       //DEBUG(dbgs() << "register " << PrintReg(TargetRegisterInfo::index2VirtReg(cur_color_node), TRI) << " is colored " << *(Color_Set.begin()) << "\n");
+       //DEBUG(dbgs() << "register " << cur_color_node << " is colored " << *(Color_Set.begin()) << "\n");
+       //std::map<unsigned, int>::iterator it;
+       //for(it=Color_Result.begin(); it!=Color_Result.end(); it++)
+       //   DEBUG(dbgs() << "Virt register "<<(*it).first<<" Phys Register  " << (*it).second << "\n");
+       //DEBUG(dbgs() << "\n");
        
      }
      Color_Set.clear();
+     
    }
+   
    //output color result 
+   //std::map<unsigned, int>::iterator it;
+   //for(it=Color_Result.begin(); it!=Color_Result.end(); it++)
+   //    DEBUG(dbgs() << "Virt register "<<(*it).first<<" Phys Register  " << (*it).second << "\n");
+      
    //assert(0 && "intentional stop");
 }
 
@@ -519,40 +536,15 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
         //DEBUG(dbgs() << "Phy class 1 num is  " << TRI->getRegClass(1)->getNumRegs() << "\n");
         //DEBUG(dbgs() << "Is allocable "<<cur_class->isAllocatable()<<"\n"); 
         //DEBUG(dbgs() << "Phy class 0 #0 is  " << gp_class->getRegister(0) << "\n");
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(0)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(1)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(2)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(3)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(4)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(5)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(6)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(7)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(8)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(9)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(10)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(11)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(12)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(13)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(14)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(15)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(16)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(17)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(18)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(19)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(20)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(21)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(22)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(23)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(24)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(25)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(26)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(27)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(28)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(29)) << "\n"); //25-T9
-        //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(30)) << "\n"); //25-T9
         //---DEBUG(dbgs() << "Phy register 1 is  " << TRI->getName(gp_class->getRegister(31)) << "\n"); //24-T8
-        unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+8);
+        //unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+8);
+        
+        //unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+16);
+        unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+16);
+        //DEBUG(dbgs() <<"Phys number is "<<(unsigned)(*it).second <<"  Virt register "<<PrintReg(VirtReg, TRI)<<" is colored to  " << PrintReg(PhysReg, TRI) << "\n"); //24-T8
+ 
         VRM->assignVirt2Phys(VirtReg, PhysReg);
+    
         //assert(0 && "intentional stop");
      }
      else
@@ -601,8 +593,8 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
            if (hasUse) 
            {
               
-              if(index_flag == 2)
-                DEBUG(dbgs() << "next register--LLY  "  << "\n"); //24-T8
+              //if(index_flag == 2)
+              //  DEBUG(dbgs() << "next register--LLY  "  << "\n"); //24-T8
                   
               if(index_flag == 2)
                 TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(23), ss, trc,TRI);
@@ -625,6 +617,7 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
         DEBUG(dbgs() << "Virt register  " <<(*it).first<<" is assigned stack slot "<<ss<< "\n");
      }
   }
+  //Color_Result.clear();
   //assert(0 && "intentional stop");
 }
 
