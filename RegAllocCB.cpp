@@ -96,9 +96,10 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   // context
   MachineFunction *MF;
 
-
+  //SlotIndexes *Indexes;
   //
   const TargetInstrInfo *TII;
+  
   // state
   std::auto_ptr<Spiller> SpillerInstance;
   std::priority_queue<LiveInterval*, std::vector<LiveInterval*>,
@@ -121,7 +122,7 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   std::map<unsigned, int> Color_Result;
 
   // the call instruction maps to a vector of virtual live registers
-  std::map<SlotIndex, std::vector< LiveReg > > LiveRegVecMap;
+  std::map< MachineInstr*, std::vector< LiveReg > > LiveRegVecMap;
 
 public:
   RAChaitinBriggs();
@@ -184,6 +185,8 @@ char RAChaitinBriggs::ID = 0;
 
 } // end anonymous namespace
 
+//INITIALIZE_PASS_DEPENDENCY(SlotIndexes)
+
 RAChaitinBriggs::RAChaitinBriggs(): MachineFunctionPass(ID) {
   initializeLiveDebugVariablesPass(*PassRegistry::getPassRegistry());
   initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
@@ -204,6 +207,7 @@ void RAChaitinBriggs::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<AliasAnalysis>();
   AU.addRequired<LiveIntervals>();
   AU.addPreserved<LiveIntervals>();
+  //AU.addRequired<SlotIndexes>();
   AU.addPreserved<SlotIndexes>();
   AU.addRequired<LiveDebugVariables>();
   AU.addPreserved<LiveDebugVariables>();
@@ -361,6 +365,9 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
                      getAnalysis<LiveRegMatrix>());
   SpillerInstance.reset(createSpiller(*this, *MF, *VRM));
 
+
+  //Indexes = &getAnalysis<SlotIndexes>();
+
   // Intialization
   LiveRegVecMap.clear();
 
@@ -370,15 +377,15 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
   // Estimate the spill cost
   spillcostcalculus();
   // k-coloring
-  K_color = 6;
+  K_color = 14;
   //K_color = 14;
   kcolorbygraphprunning(K_color);
   
   //edit VRM
   //
   assignvir2phy(mf);
-  Color_Result.clear();
   manageregisterXcall(mf);
+  Color_Result.clear();
   
   // Diagnostic output before rewriting
   DEBUG(dbgs() << "Post alloc VirtRegMap:\n" << *VRM << "\n");
@@ -510,7 +517,7 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
        //DEBUG(dbgs() << "register " << cur_color_node << "\n");
        Color_Result.insert(std::pair<unsigned, int>(cur_color_node, *(Color_Set.begin())));
        //DEBUG(dbgs() << "register " << PrintReg(TargetRegisterInfo::index2VirtReg(cur_color_node), TRI) << " is colored " << *(Color_Set.begin()) << "\n");
-       //DEBUG(dbgs() << "register " << cur_color_node << " is colored " << *(Color_Set.begin()) << "\n");
+       DEBUG(dbgs() << "register " << cur_color_node << " is colored " << *(Color_Set.begin()) << "\n");
        //std::map<unsigned, int>::iterator it;
        //for(it=Color_Result.begin(); it!=Color_Result.end(); it++)
        //   DEBUG(dbgs() << "Virt register "<<(*it).first<<" Phys Register  " << (*it).second << "\n");
@@ -553,7 +560,7 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
         //unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+8);
         
         //unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+16);
-        unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+16);
+        unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+10);
         //DEBUG(dbgs() <<"Phys number is "<<(unsigned)(*it).second <<"  Virt register "<<PrintReg(VirtReg, TRI)<<" is colored to  " << PrintReg(PhysReg, TRI) << "\n"); //24-T8
  
         VRM->assignVirt2Phys(VirtReg, PhysReg);
@@ -593,10 +600,10 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
               MachineOperand &mop = mi->getOperand(mopIdx);
               if(index_flag == 2)
                 //mop.setReg(gp_class->getRegister(23));
-                mop.setReg(gp_class->getRegister(15));
+                mop.setReg(gp_class->getRegister(9));
               else
                 //mop.setReg(gp_class->getRegister(22));
-                mop.setReg(gp_class->getRegister(14));
+                mop.setReg(gp_class->getRegister(8));
               if (mop.isUse() && !mi->isRegTiedToDefOperand(mopIdx)) 
               {
                 mop.setIsKill(true);
@@ -613,10 +620,10 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
                   
               if(index_flag == 2)
                 //TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(23), ss, trc,TRI);
-                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(15), ss, trc,TRI);
+                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(9), ss, trc,TRI);
               else
                 //TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(22), ss, trc,TRI);
-                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(14), ss, trc,TRI);
+                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(8), ss, trc,TRI);
               //MachineInstr *loadInstr(prior(miItr));
               //SlotIndex loadIndex =
               //  lis->InsertMachineInstrInMaps(loadInstr).getRegSlot();
@@ -628,7 +635,7 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
            if (hasDef) 
            {
               //TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(22), true, ss, trc, TRI);
-              TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(14), true, ss, trc, TRI);
+              TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(8), true, ss, trc, TRI);
            }
 
         }
@@ -649,19 +656,74 @@ void RAChaitinBriggs::manageregisterXcall(MachineFunction &mf)
   //MachineInstr *mi = ;  
   int SS = mf.getFrameInfo()->CreateSpillStackObject(RC->getSize(),RC->getAlignment());
   DEBUG(dbgs() << "allocated stack slot is  " <<SS<< "\n");
-  for (MachineFunction::iterator MBBi = mf.begin(), MBBe = mf.end(); MBBi != MBBe; ++MBBi) 
+  //std::map< MachineInstr*, std::vector< LiveReg > > LiveRegVecMap;
+  //
+  std::map<MachineInstr *, std::vector<LiveReg> >::iterator it;
+  std::vector<LiveReg> LiveUnpreservedReg;
+  for ( it=LiveRegVecMap.begin() ; it != LiveRegVecMap.end(); it++ )
   {
-    for (MachineBasicBlock::instr_iterator MII = MBBi->instr_begin(), MIE = MBBi->instr_end(); MII != MIE;++MII)
-    {
-       MachineInstr *MI = MII;
+     //get the instruction
+     MachineInstr *MI = (*it).first;
+     DEBUG(dbgs()<<"Call instruction is " << *MI << "\n");
 
-       DEBUG(dbgs() << *MI << "\n");
-       int SS = mf.getFrameInfo()->CreateSpillStackObject(RC->getSize(),RC->getAlignment());
-       TII->loadRegFromStackSlot(*MI->getParent(), MII, RC->getRegister(15), SS, RC,TRI);
-    }    
-    //assert(0 && "intentional stop");
+     //get the unpreserved registers in the liveset
+     for (unsigned i=0; i<(*it).second.size(); i++) 
+     {
+       unsigned idxVirt = TargetRegisterInfo::virtReg2Index((*it).second[i].Reg);
+       //check whether the register is non preserved
+       DEBUG(dbgs()<<"The virtual live regiser is  " << idxVirt << " the register is "<< PrintReg((*it).second[i].Reg,TRI)  << "\n");
+       //get the mapped phys register
+       //std::map<unsigned, int> Color_Result;
+       int idxPhys = Color_Result[idxVirt];
+       DEBUG(dbgs()<<"The mapped Phys regiser is  " << idxPhys  << "\n");
+       //determine whether the Phys register is non preserved
+       if(idxPhys<8)
+       {
+          MachineBasicBlock::iterator miItr(MI);
+          DEBUG(dbgs()<<"Need to save and restore registers "  << "\n");
+          int SS = mf.getFrameInfo()->CreateSpillStackObject(RC->getSize(),RC->getAlignment());
+          TII->loadRegFromStackSlot(*MI->getParent(), llvm::next(miItr), RC->getRegister(idxPhys+10), SS, RC,TRI);
+          TII->storeRegToStackSlot(*MI->getParent(), miItr, RC->getRegister(idxPhys+10), true, SS, RC, TRI);
+          //TII->loadRegFromStackSlot(*MI->getParent(), llvm::next(miItr), RC->getRegister(idxVirt), SS, RC,TRI);
+          //TII->storeRegToStackSlot(*MI->getParent(), miItr, RC->getRegister(idxVirt), false, SS, RC, TRI);
+       }
+     }
   }
-   
+ 
+  //std::map<SlotIndex, std::vector< LiveReg > > LiveRegVecMap;
+  //      std::vector< LiveReg > regs(LiveRegs.begin(), LiveRegs.end());
+  //      SlotIndex call_instr_slot = LIS->getInstructionIndex(&*MIi);
+  //      LiveRegVecMap[call_instr_slot] = regs;
+  //
+  //======std::map<SlotIndex, std::vector<LiveReg> >::iterator it;
+  //======std::vector<LiveReg> LiveUnpreservedReg;
+  //======for ( it=LiveRegVecMap.begin() ; it != LiveRegVecMap.end(); it++ )
+  //======{
+  //======   //get the instruction
+  //======   MachineInstr *MI = Indexes->getInstructionFromIndex((*it).first);
+  //======   DEBUG(dbgs()<<"Call instruction is " << *MI << "\n");
+
+  //======   //get the unpreserved registers in the liveset
+  //======   for (unsigned i=0; i<(*it).second.size(); i++) 
+  //======   {
+  //======     unsigned idxVirt = TargetRegisterInfo::virtReg2Index((*it).second[i].Reg);
+  //======     //check whether the register is non preserved
+  //======     DEBUG(dbgs()<<"The virtual live regiser is  " << idxVirt << " the register is "<< (*it).second[i].Reg  << "\n");
+  //======     //get the mapped phys register
+  //======     //std::map<unsigned, int> Color_Result;
+  //======     int idxPhys = Color_Result[idxVirt];
+  //======     DEBUG(dbgs()<<"The mapped Phys regiser is  " << idxPhys  << "\n");
+  //======     //determine whether the Phys register is non preserved
+  //======     if(idxPhys<8)
+  //======     {
+  //======        MachineBasicBlock::iterator miItr(MI);
+  //======        DEBUG(dbgs()<<"Need to save and restore registers "  << "\n");
+  //======        int SS = mf.getFrameInfo()->CreateSpillStackObject(RC->getSize(),RC->getAlignment());
+  //======        TII->loadRegFromStackSlot(*MI->getParent(), llvm::next(miItr), RC->getRegister(idxPhys+8), SS, RC,TRI);
+  //======        TII->storeRegToStackSlot(*MI->getParent(), miItr, RC->getRegister(idxPhys+8), true, SS, RC, TRI);
+  //======     }
+  //======   }
+  //======}
 }
 
 
@@ -711,8 +773,7 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
       // When the instruction is a call, save the caller-saved registers
       if (MIi->isCall()) {
         std::vector< LiveReg > regs(LiveRegs.begin(), LiveRegs.end());
-        SlotIndex call_instr_slot = LIS->getInstructionIndex(&*MIi);
-        LiveRegVecMap[call_instr_slot] = regs;
+        LiveRegVecMap[&*MIi] = regs;
         DEBUG(dbgs() << "This is a call instruction" << "\n");
         DEBUG(dbgs() << "Live Register Candidate: ");
         for (std::vector< LiveReg >::iterator LRVi = regs.begin(), LRVe = regs.end(); LRVi != LRVe; ++LRVi) {
