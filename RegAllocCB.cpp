@@ -117,6 +117,9 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   //0-(K-1) colors and K means spilling.
   std::map<unsigned, int> Color_Result;
 
+  // the call instruction maps to a vector of virtual live registers
+  std::map<SlotIndex, std::vector< LiveReg > > LiveRegVecMap;
+
 public:
   RAChaitinBriggs();
 
@@ -169,6 +172,8 @@ public:
   void assignvir2phy(MachineFunction &mf);
   //int pick_spill_candidate();
   static char ID;
+
+
 };
 
 char RAChaitinBriggs::ID = 0;
@@ -351,6 +356,9 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
                      getAnalysis<LiveIntervals>(),
                      getAnalysis<LiveRegMatrix>());
   SpillerInstance.reset(createSpiller(*this, *MF, *VRM));
+
+  // Intialization
+  LiveRegVecMap.clear();
 
   // Build the interference graph
   buildInterferenceGraph(mf);
@@ -654,11 +662,6 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
         LiveRegs.insert(LiveReg(Reg));
       }
     }
-//    for (unsigned i = 0, e = TRI->getNumRegs(); i != e; ++i) {
-//      if(LIS->isLiveOutOfMBB(LIS->getInterval(i), MBBi)) {
-//        LiveRegs.insert(LiveReg(i));
-//      }
-//    }
     
     // Traverse backward to calculate the LiveNow for each instruction in
     // the basic block, and then build the interference graph
@@ -668,6 +671,20 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
 
       // Print the current instruction
       DEBUG(dbgs() << *MIi << "\n");
+
+      // When the instruction is a call, save the caller-saved registers
+      if (MIi->isCall()) {
+        std::vector< LiveReg > regs(LiveRegs.begin(), LiveRegs.end());
+        SlotIndex call_instr_slot = LIS->getInstructionIndex(&*MIi);
+        LiveRegVecMap[call_instr_slot] = regs;
+        DEBUG(dbgs() << "This is a call instruction" << "\n");
+        DEBUG(dbgs() << "Live Register Candidate: ");
+        for (std::vector< LiveReg >::iterator LRVi = regs.begin(), LRVe = regs.end(); LRVi != LRVe; ++LRVi) {
+          DEBUG(dbgs() << PrintReg(LRVi->Reg, TRI) << " ");
+        }
+        DEBUG(dbgs() << "\n");
+        continue;
+      }
 
       // Print out the LiveNow registers
       DEBUG(dbgs() << " LiveNow Registers:\n");
