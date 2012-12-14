@@ -25,6 +25,9 @@
 #include "llvm/CodeGen/CalcSpillWeights.h"
 #include "llvm/CodeGen/LiveIntervalAnalysis.h"
 #include "llvm/CodeGen/LiveRangeEdit.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/CodeGen/MachineFunction.h"
+
 #include "llvm/CodeGen/LiveStackAnalysis.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstr.h"
@@ -170,6 +173,7 @@ public:
   void kcolorbygraphprunning(int K_color);
   void spillcostcalculus();
   void assignvir2phy(MachineFunction &mf);
+  void manageregisterXcall(MachineFunction &mf);
   //int pick_spill_candidate();
   static char ID;
 
@@ -374,6 +378,7 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
   //
   assignvir2phy(mf);
   Color_Result.clear();
+  manageregisterXcall(mf);
   
   // Diagnostic output before rewriting
   DEBUG(dbgs() << "Post alloc VirtRegMap:\n" << *VRM << "\n");
@@ -587,9 +592,11 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
               unsigned mopIdx = indices[i];
               MachineOperand &mop = mi->getOperand(mopIdx);
               if(index_flag == 2)
-                mop.setReg(gp_class->getRegister(23));
+                //mop.setReg(gp_class->getRegister(23));
+                mop.setReg(gp_class->getRegister(15));
               else
-                mop.setReg(gp_class->getRegister(22));
+                //mop.setReg(gp_class->getRegister(22));
+                mop.setReg(gp_class->getRegister(14));
               if (mop.isUse() && !mi->isRegTiedToDefOperand(mopIdx)) 
               {
                 mop.setIsKill(true);
@@ -605,9 +612,11 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
               //  DEBUG(dbgs() << "next register--LLY  "  << "\n"); //24-T8
                   
               if(index_flag == 2)
-                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(23), ss, trc,TRI);
+                //TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(23), ss, trc,TRI);
+                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(15), ss, trc,TRI);
               else
-                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(22), ss, trc,TRI);
+                //TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(22), ss, trc,TRI);
+                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(14), ss, trc,TRI);
               //MachineInstr *loadInstr(prior(miItr));
               //SlotIndex loadIndex =
               //  lis->InsertMachineInstrInMaps(loadInstr).getRegSlot();
@@ -618,7 +627,8 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
            }
            if (hasDef) 
            {
-              TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(22), true, ss, trc, TRI);
+              //TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(22), true, ss, trc, TRI);
+              TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(14), true, ss, trc, TRI);
            }
 
         }
@@ -628,6 +638,32 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
   //Color_Result.clear();
   //assert(0 && "intentional stop");
 }
+
+  
+void RAChaitinBriggs::manageregisterXcall(MachineFunction &mf)
+{
+  //This function will insert instruction to save/restore registers around function call 
+  DEBUG(dbgs() << " Insert instruction to save/restore registers cross function call "<< "\n");
+  const TargetRegisterClass * RC = TRI->getRegClass(0);
+  //get a JALR instruction
+  //MachineInstr *mi = ;  
+  int SS = mf.getFrameInfo()->CreateSpillStackObject(RC->getSize(),RC->getAlignment());
+  DEBUG(dbgs() << "allocated stack slot is  " <<SS<< "\n");
+  for (MachineFunction::iterator MBBi = mf.begin(), MBBe = mf.end(); MBBi != MBBe; ++MBBi) 
+  {
+    for (MachineBasicBlock::instr_iterator MII = MBBi->instr_begin(), MIE = MBBi->instr_end(); MII != MIE;++MII)
+    {
+       MachineInstr *MI = MII;
+
+       DEBUG(dbgs() << *MI << "\n");
+       int SS = mf.getFrameInfo()->CreateSpillStackObject(RC->getSize(),RC->getAlignment());
+       TII->loadRegFromStackSlot(*MI->getParent(), MII, RC->getRegister(15), SS, RC,TRI);
+    }    
+    //assert(0 && "intentional stop");
+  }
+   
+}
+
 
 void RAChaitinBriggs::addInterference(LiveReg DefReg, LiveRegMap &LiveRegs) {
   assert(TargetRegisterInfo::isVirtualRegister(DefReg.Reg) &&
