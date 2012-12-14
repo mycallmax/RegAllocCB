@@ -99,7 +99,11 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   //SlotIndexes *Indexes;
   //
   const TargetInstrInfo *TII;
-  
+ 
+  static  int Allocate_Phys_Start_index; //= 10; 
+  static  int Reserved_Phys_Splitting_1; //= 8;
+  static  int Reserved_Phys_Splitting_2; //= 9;
+  static  int K_color;
   // state
   std::auto_ptr<Spiller> SpillerInstance;
   std::priority_queue<LiveInterval*, std::vector<LiveInterval*>,
@@ -117,10 +121,10 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
 
   std::stack<unsigned> Color_Node_Stack;
 
-  int K_color;
   //0-(K-1) colors and K means spilling.
   std::map<unsigned, int> Color_Result;
 
+  std::map<int, unsigned> Color_2_PhysReg;
   // the call instruction maps to a vector of virtual live registers
   std::map< MachineInstr*, std::vector< LiveReg > > LiveRegVecMap;
 
@@ -182,6 +186,10 @@ public:
 };
 
 char RAChaitinBriggs::ID = 0;
+int RAChaitinBriggs::Allocate_Phys_Start_index= 10; 
+int RAChaitinBriggs::Reserved_Phys_Splitting_1= 8;
+int RAChaitinBriggs::Reserved_Phys_Splitting_2= 9;
+int RAChaitinBriggs::K_color = 14;
 
 } // end anonymous namespace
 
@@ -377,7 +385,7 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
   // Estimate the spill cost
   spillcostcalculus();
   // k-coloring
-  K_color = 14;
+  //K_color = 14;
   //K_color = 14;
   kcolorbygraphprunning(K_color);
   
@@ -414,6 +422,30 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
    //InterferenceGraph IG;
    //Output:
    //std::map<unsigned, int> Color_Result;
+
+
+
+   //std::map<int, unsigned> Color_2_PhysReg;
+   Color_2_PhysReg[0] = 16;  //S0  
+   Color_2_PhysReg[1] = 17;  //S1
+   Color_2_PhysReg[2] = 18;  //S2
+   Color_2_PhysReg[3] = 19;  //S3
+   Color_2_PhysReg[4] = 20;  //S4
+   Color_2_PhysReg[5] = 21;  //S5
+   Color_2_PhysReg[6] = 22;  //S6
+   Color_2_PhysReg[7] = 23;  //S7
+   Color_2_PhysReg[8] = 10;  //T2
+   Color_2_PhysReg[9] = 11;  //T3
+   Color_2_PhysReg[10] =12;  //T4 
+   Color_2_PhysReg[11] =13;  //T5
+   Color_2_PhysReg[12] =14;  //T6
+   Color_2_PhysReg[13] =15;  //T7
+
+
+
+
+
+
 
    //make another copy of IG for future color step 
    DEBUG(dbgs() << "Start to color all registers \n");
@@ -560,7 +592,8 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
         //unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+8);
         
         //unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+16);
-        unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+10);
+        unsigned PhysReg = gp_class->getRegister(Color_2_PhysReg[(*it).second]);
+        //unsigned PhysReg = gp_class->getRegister((unsigned)(*it).second+Allocate_Phys_Start_index);
         //DEBUG(dbgs() <<"Phys number is "<<(unsigned)(*it).second <<"  Virt register "<<PrintReg(VirtReg, TRI)<<" is colored to  " << PrintReg(PhysReg, TRI) << "\n"); //24-T8
  
         VRM->assignVirt2Phys(VirtReg, PhysReg);
@@ -600,10 +633,10 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
               MachineOperand &mop = mi->getOperand(mopIdx);
               if(index_flag == 2)
                 //mop.setReg(gp_class->getRegister(23));
-                mop.setReg(gp_class->getRegister(9));
+                mop.setReg(gp_class->getRegister(Reserved_Phys_Splitting_2));
               else
                 //mop.setReg(gp_class->getRegister(22));
-                mop.setReg(gp_class->getRegister(8));
+                mop.setReg(gp_class->getRegister(Reserved_Phys_Splitting_1));
               if (mop.isUse() && !mi->isRegTiedToDefOperand(mopIdx)) 
               {
                 mop.setIsKill(true);
@@ -620,10 +653,10 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
                   
               if(index_flag == 2)
                 //TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(23), ss, trc,TRI);
-                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(9), ss, trc,TRI);
+                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(Reserved_Phys_Splitting_2), ss, trc,TRI);
               else
                 //TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(22), ss, trc,TRI);
-                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(8), ss, trc,TRI);
+                TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(Reserved_Phys_Splitting_1), ss, trc,TRI);
               //MachineInstr *loadInstr(prior(miItr));
               //SlotIndex loadIndex =
               //  lis->InsertMachineInstrInMaps(loadInstr).getRegSlot();
@@ -635,7 +668,7 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
            if (hasDef) 
            {
               //TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(22), true, ss, trc, TRI);
-              TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(8), true, ss, trc, TRI);
+              TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(Reserved_Phys_Splitting_1), true, ss, trc, TRI);
            }
 
         }
@@ -682,8 +715,8 @@ void RAChaitinBriggs::manageregisterXcall(MachineFunction &mf)
           MachineBasicBlock::iterator miItr(MI);
           DEBUG(dbgs()<<"Need to save and restore registers "  << "\n");
           int SS = mf.getFrameInfo()->CreateSpillStackObject(RC->getSize(),RC->getAlignment());
-          TII->loadRegFromStackSlot(*MI->getParent(), llvm::next(miItr), RC->getRegister(idxPhys+10), SS, RC,TRI);
-          TII->storeRegToStackSlot(*MI->getParent(), miItr, RC->getRegister(idxPhys+10), true, SS, RC, TRI);
+          TII->loadRegFromStackSlot(*MI->getParent(), llvm::next(miItr), RC->getRegister(Color_2_PhysReg[idxPhys]), SS, RC,TRI);
+          TII->storeRegToStackSlot(*MI->getParent(), miItr, RC->getRegister(Color_2_PhysReg[idxPhys]), true, SS, RC, TRI);
           //TII->loadRegFromStackSlot(*MI->getParent(), llvm::next(miItr), RC->getRegister(idxVirt), SS, RC,TRI);
           //TII->storeRegToStackSlot(*MI->getParent(), miItr, RC->getRegister(idxVirt), false, SS, RC, TRI);
        }
