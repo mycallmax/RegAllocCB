@@ -100,10 +100,10 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   //
   const TargetInstrInfo *TII;
  
-  static  int Allocate_Phys_Start_index; //= 10; 
-  static  int Reserved_Phys_Splitting_1; //= 8;
-  static  int Reserved_Phys_Splitting_2; //= 9;
-  static  int K_color;
+ // static  unsigned  Allocate_Phys_Start_index; //= 10; 
+  static  unsigned  Reserved_Phys_Splitting_1; //= 8;
+  static  unsigned  Reserved_Phys_Splitting_2; //= 9;
+  static  unsigned  K_color;
   // state
   std::auto_ptr<Spiller> SpillerInstance;
   std::priority_queue<LiveInterval*, std::vector<LiveInterval*>,
@@ -117,14 +117,14 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   typedef std::vector< std::list< unsigned > > InterferenceGraph;
   InterferenceGraph IG;
 
-  std::map<int, int> SpillCost;
+  std::map<unsigned, unsigned> SpillCost;
 
   std::stack<unsigned> Color_Node_Stack;
 
   //0-(K-1) colors and K means spilling.
-  std::map<unsigned, int> Color_Result;
+  std::map<unsigned, unsigned> Color_Result;
 
-  std::map<int, unsigned> Color_2_PhysReg;
+  std::map<unsigned, unsigned> Color_2_PhysReg;
   // the call instruction maps to a vector of virtual live registers
   std::map< MachineInstr*, std::vector< LiveReg > > LiveRegVecMap;
 
@@ -175,7 +175,7 @@ public:
   void addInterference(LiveReg DefReg, LiveRegMap &LiveRegs);
 
   //k-color the interference graph by graph prunning
-  void kcolorbygraphprunning(int K_color);
+  void kcolorbygraphprunning(unsigned K_color);
   void spillcostcalculus();
   void assignvir2phy(MachineFunction &mf);
   void manageregisterXcall(MachineFunction &mf);
@@ -186,10 +186,10 @@ public:
 };
 
 char RAChaitinBriggs::ID = 0;
-int RAChaitinBriggs::Allocate_Phys_Start_index= 10; 
-int RAChaitinBriggs::Reserved_Phys_Splitting_1= 8;
-int RAChaitinBriggs::Reserved_Phys_Splitting_2= 9;
-int RAChaitinBriggs::K_color = 14;
+//unsigned  RAChaitinBriggs::Allocate_Phys_Start_index= 10; 
+unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_1= 8;
+unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_2= 9;
+unsigned  RAChaitinBriggs::K_color = 14;
 
 } // end anonymous namespace
 
@@ -394,7 +394,16 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
   assignvir2phy(mf);
   manageregisterXcall(mf);
   Color_Result.clear();
-  
+  IG.clear();
+
+  SpillCost.clear();
+
+
+  Color_2_PhysReg.clear();
+  LiveRegVecMap.clear();
+  //
+
+ 
   // Diagnostic output before rewriting
   DEBUG(dbgs() << "Post alloc VirtRegMap:\n" << *VRM << "\n");
 
@@ -415,15 +424,13 @@ void RAChaitinBriggs::spillcostcalculus()
 }
 
 
-void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
+void RAChaitinBriggs::kcolorbygraphprunning(unsigned K_color)
 {
    //Input: 
    //typedef std::vector< std::list< unsigned > > InterferenceGraph;
    //InterferenceGraph IG;
    //Output:
    //std::map<unsigned, int> Color_Result;
-
-
 
    //std::map<int, unsigned> Color_2_PhysReg;
    Color_2_PhysReg[0] = 16;  //S0  
@@ -449,15 +456,16 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
 
    //make another copy of IG for future color step 
    DEBUG(dbgs() << "Start to color all registers \n");
-   std::map<int, std::list<unsigned> > IG_copy;
+   std::map<unsigned, std::list<unsigned> > IG_copy;
       
-    for (InterferenceGraph::iterator IGi = IG.begin(), IGe = IG.end();  IGi != IGe; IGi++) 
+    unsigned i=0;
+    for (InterferenceGraph::iterator IGi = IG.begin(), IGe = IG.end();  IGi != IGe; IGi++,i++) 
     {
       if((*IGi).size()==0)
-       Color_Node_Stack.push((unsigned)(IGi-IG.begin()));
+       Color_Node_Stack.push(i);
         
       for (std::list< unsigned >::iterator IGLi = IGi->begin(), IGLe = IGi->end();IGLi != IGLe; IGLi++) 
-         IG_copy[IGi-IG.begin()].push_back(*IGLi);
+         IG_copy[i].push_back(*IGLi);
     }
    
    //recording the removed nodes from IG
@@ -466,10 +474,10 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
    while(IG_copy.size()!=0)
    {
      int cur_node = -1;
-     std::map<int, std::list<unsigned> >::iterator itmap;
+     std::map<unsigned, std::list<unsigned> >::iterator itmap;
      for ( itmap=IG_copy.begin() ; itmap != IG_copy.end(); itmap++ )
      {
-       if((*itmap).second.size() < (unsigned)K_color)
+       if((*itmap).second.size() < K_color)
        {
          cur_node = (*itmap).first;
          break;
@@ -501,12 +509,14 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
        }
      }
 
-     Color_Node_Stack.push((unsigned)cur_node);
+     Color_Node_Stack.push(cur_node);
      //remove all adjacent edges from IG
      std::list<unsigned>::iterator it;
-     for(it = IG_copy[cur_node].begin(); it!=IG_copy[cur_node].end(); it++)
+     std::list<unsigned> cur_list = IG_copy[cur_node]; 
+     for(it = cur_list.begin(); it!=cur_list.end(); it++)
+     //for(it = IG_copy[cur_node].begin(); it!=IG_copy[cur_node].end(); it++)
      {
-       int reachnode =(int)(*it);
+       unsigned reachnode =(*it);
        IG_copy[reachnode].remove(cur_node);    
      } 
      //remove the Node
@@ -517,7 +527,7 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
    //std::stack<unsigned> Color_Node_Stack;
    //start to color the IG graph
    //std::map<unsigned, int> Color_Result;
-   std::set<int> Color_Set;
+   std::set<unsigned> Color_Set;
    while(!Color_Node_Stack.empty())
    {
      unsigned cur_color_node = Color_Node_Stack.top();
@@ -526,7 +536,7 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
      Color_Node_Stack.pop();
      //fill the full color set 
      //std::set<int>::iterator it; 
-     for(int i=0; i<K_color; i++)
+     for(unsigned i=0; i<K_color; i++)
        Color_Set.insert(i); 
      //delete available color by checking its adjacent color 
      InterferenceGraph::iterator IGi = IG.begin() + cur_color_node; 
@@ -539,7 +549,7 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
      if(Color_Set.empty())
      {
        //Spill 
-       Color_Result.insert(std::pair<unsigned, int>(cur_color_node, K_color));
+       Color_Result.insert(std::pair<unsigned, unsigned>(cur_color_node, K_color));
        //Color_Result.insert(std::pair<unsigned, int>(cur_color_node, K_color));
        DEBUG(dbgs() << "<spill>register " << cur_color_node << "\n");
      }
@@ -547,7 +557,7 @@ void RAChaitinBriggs::kcolorbygraphprunning(int K_color)
      {
        
        //DEBUG(dbgs() << "register " << cur_color_node << "\n");
-       Color_Result.insert(std::pair<unsigned, int>(cur_color_node, *(Color_Set.begin())));
+       Color_Result.insert(std::pair<unsigned, unsigned>(cur_color_node, *(Color_Set.begin())));
        //DEBUG(dbgs() << "register " << PrintReg(TargetRegisterInfo::index2VirtReg(cur_color_node), TRI) << " is colored " << *(Color_Set.begin()) << "\n");
        DEBUG(dbgs() << "register " << cur_color_node << " is colored " << *(Color_Set.begin()) << "\n");
        //std::map<unsigned, int>::iterator it;
@@ -572,7 +582,7 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
 {
   //virtual register to phy register
   //std::map<unsigned, int> Color_Result;
-  std::map<unsigned, int>::iterator it;
+  std::map<unsigned, unsigned>::iterator it;
   const TargetRegisterClass * gp_class = TRI->getRegClass(0);
   //const TargetInstrInfo *TII = mf.getTarget().getInstrInfo();
   //const TargetRegisterClass *trc = mri->getRegClass();
