@@ -189,7 +189,7 @@ char RAChaitinBriggs::ID = 0;
 //unsigned  RAChaitinBriggs::Allocate_Phys_Start_index= 10; 
 unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_1= 8;
 unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_2= 9;
-unsigned  RAChaitinBriggs::K_color = 14;
+unsigned  RAChaitinBriggs::K_color = 8;
 
 } // end anonymous namespace
 
@@ -720,7 +720,7 @@ void RAChaitinBriggs::manageregisterXcall(MachineFunction &mf)
        int idxPhys = Color_Result[idxVirt];
        DEBUG(dbgs()<<"The mapped Phys regiser is  " << idxPhys  << "\n");
        //determine whether the Phys register is non preserved
-       if(idxPhys<8)
+       if((Color_2_PhysReg[idxPhys]<=15) && (Color_2_PhysReg[idxPhys]>=10))
        {
           MachineBasicBlock::iterator miItr(MI);
           DEBUG(dbgs()<<"Need to save and restore registers "  << "\n");
