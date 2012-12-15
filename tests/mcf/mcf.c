@@ -16,8 +16,6 @@ Copyright (c) 1998,1999   ZIB Berlin   All Rights Reserved
 
 #include "mcf.h"
 
-#define REPORT
-
 extern long min_impl_duration;
 network_t net;
 

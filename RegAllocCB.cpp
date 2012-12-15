@@ -48,6 +48,8 @@
 #include <map>
 #include <list>
 #include <stack>
+#include <math.h>
+
 using namespace llvm;
 
 static RegisterRegAlloc basicRegAlloc("chaitin_briggs", "Chaitin-Briggs register allocator",
@@ -99,6 +101,8 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   //SlotIndexes *Indexes;
   //
   const TargetInstrInfo *TII;
+
+  const MachineLoopInfo * loopInfo;
  
  // static  unsigned  Allocate_Phys_Start_index; //= 10; 
   static  unsigned  Reserved_Phys_Splitting_1; //= 8;
@@ -117,7 +121,12 @@ class RAChaitinBriggs : public MachineFunctionPass, public RegAllocBase
   typedef std::vector< std::list< unsigned > > InterferenceGraph;
   InterferenceGraph IG;
 
-  std::map<unsigned, unsigned> SpillCost;
+  std::map<unsigned, double> SpillCost;
+
+  //std::map<unsigned, unsigned> defnum;
+  //std::map<unsigned, unsigned> usenum;
+  std::map<unsigned, std::vector<unsigned> > def_nestdepth;
+  std::map<unsigned, std::vector<unsigned> > use_nestdepth;
 
   std::stack<unsigned> Color_Node_Stack;
 
@@ -189,7 +198,7 @@ char RAChaitinBriggs::ID = 0;
 //unsigned  RAChaitinBriggs::Allocate_Phys_Start_index= 10; 
 unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_1= 8;
 unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_2= 9;
-unsigned  RAChaitinBriggs::K_color = 8;
+unsigned  RAChaitinBriggs::K_color = 14;
 
 } // end anonymous namespace
 
@@ -368,6 +377,8 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
 
   MF = &mf;
   TII = mf.getTarget().getInstrInfo();
+  loopInfo = &getAnalysis<MachineLoopInfo>();
+
   RegAllocBase::init(getAnalysis<VirtRegMap>(),
                      getAnalysis<LiveIntervals>(),
                      getAnalysis<LiveRegMatrix>());
@@ -401,6 +412,10 @@ bool RAChaitinBriggs::runOnMachineFunction(MachineFunction &mf) {
 
   Color_2_PhysReg.clear();
   LiveRegVecMap.clear();
+  //defnum.clear();
+  //usenum.clear();
+  def_nestdepth.clear();
+  use_nestdepth.clear();
   //
 
  
@@ -418,8 +433,32 @@ void RAChaitinBriggs::spillcostcalculus()
   for (InterferenceGraph::iterator IGi = IG.begin(), IGe = IG.end();  IGi != IGe; IGi++)
   {
     //TBD: using formulas to calculate the spill cost
-    //Fix it as 100 now.
-    SpillCost.insert(std::pair<int,int>(IGi-IG.begin() ,100)); 
+    unsigned virtReg = IGi-IG.begin();
+    //compute the spill cost
+    //unsigned defs = defnum[virtReg];
+    //unsigned uses = usenum[virtReg];
+    std::vector<unsigned> defnestdepthVec = def_nestdepth[virtReg];
+    std::vector<unsigned> usenestdepthVec = use_nestdepth[virtReg];
+    std::vector<unsigned>::iterator it;
+    double defcost = 0;
+    double usecost = 0;
+    for (it=defnestdepthVec.begin(); it<defnestdepthVec.end(); it++) 
+    {
+       DEBUG(dbgs() <<"Register "<<virtReg<<" def depth is "<<*it<<"\n");
+       defcost = defcost + pow(10.0, *it);
+    }
+    //DEBUG(dbgs() <<"Register "<<virtReg<<" def cost is "<<defcost<<"\n");
+    
+    for (it=usenestdepthVec.begin(); it<usenestdepthVec.end(); it++) 
+    {
+       DEBUG(dbgs() <<"Register "<<virtReg<<" use depth is "<<*it<<"\n");
+       usecost = usecost + pow(10.0, *it);
+    }
+    //DEBUG(dbgs() <<"Register "<<virtReg<<" use cost is "<<usecost<<"\n");
+    double totalcost = defcost + usecost; 
+    DEBUG(dbgs() << "Register "<<virtReg<<".  The total cost is " << totalcost << "\n");
+    
+    SpillCost.insert(std::pair<unsigned, unsigned>(virtReg ,totalcost)); 
   }  
 }
 
@@ -447,12 +486,6 @@ void RAChaitinBriggs::kcolorbygraphprunning(unsigned K_color)
    Color_2_PhysReg[11] =13;  //T5
    Color_2_PhysReg[12] =14;  //T6
    Color_2_PhysReg[13] =15;  //T7
-
-
-
-
-
-
 
    //make another copy of IG for future color step 
    DEBUG(dbgs() << "Start to color all registers \n");
@@ -493,7 +526,7 @@ void RAChaitinBriggs::kcolorbygraphprunning(unsigned K_color)
        for ( itmap=IG_copy.begin() ; itmap != IG_copy.end(); itmap++ )
        {
           //current degree
-          int cost = SpillCost[(*itmap).first];  
+          double cost = SpillCost[(*itmap).first];  
           int degree = (*itmap).second.size();
           double tmp_spill_cost =  (double)cost/(double)degree;
           if(spill_cost == -1)
@@ -717,10 +750,10 @@ void RAChaitinBriggs::manageregisterXcall(MachineFunction &mf)
        DEBUG(dbgs()<<"The virtual live regiser is  " << idxVirt << " the register is "<< PrintReg((*it).second[i].Reg,TRI)  << "\n");
        //get the mapped phys register
        //std::map<unsigned, int> Color_Result;
-       int idxPhys = Color_Result[idxVirt];
+       unsigned idxPhys = Color_Result[idxVirt];
        DEBUG(dbgs()<<"The mapped Phys regiser is  " << idxPhys  << "\n");
        //determine whether the Phys register is non preserved
-       if((Color_2_PhysReg[idxPhys]<=15) && (Color_2_PhysReg[idxPhys]>=10))
+       if((idxPhys!=K_color)&&(Color_2_PhysReg[idxPhys]<=15) && (Color_2_PhysReg[idxPhys]>=10))
        {
           MachineBasicBlock::iterator miItr(MI);
           DEBUG(dbgs()<<"Need to save and restore registers "  << "\n");
@@ -788,10 +821,20 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
   LiveReg::PhyRegsNum = TRI->getNumRegs();
   IG.resize(MRI->getNumVirtRegs());
   // Loop over all of the basic blocks
+
+  //initialize the defnum and usenum
+  //////for(unsigned i=0; i<MRI->getNumVirtRegs(); i++)
+  //////{
+  //////  def_nestdepth[i]=0;
+  //////  use_nestdepth[i]=0;
+  //////}
   for (MachineFunction::iterator MBBi = mf.begin(), MBBe = mf.end();
        MBBi != MBBe; ++MBBi) {
     DEBUG(dbgs() << "Building interference graph on " << *MBBi << "\n");
-    
+   
+
+    MachineBasicBlock *MBB = &*MBBi; 
+    unsigned loopDepth = loopInfo->getLoopDepth(MBB);
     // Calculate the Live Out Virtual Registers (TODO: include physical ones)
     LiveRegMap LiveRegs;
     LiveRegs.setUniverse(MRI->getNumVirtRegs() + LiveReg::PhyRegsNum);
@@ -849,6 +892,10 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
           unsigned def_reg = op.getReg();
           LiveReg DefReg(def_reg);
           if (TRI->isVirtualRegister(def_reg)) { // TODO: remove this check
+            //add to the nestdepth of def; added by Lingyi
+            unsigned idx = TargetRegisterInfo::virtReg2Index(def_reg);
+            def_nestdepth[idx].push_back(loopDepth);
+            //DEBUG(dbgs() << "SPILL COST: def reg is " << def_reg << "\n");
             this->addInterference(DefReg, LiveRegs);
             LiveRegs.erase(DefReg.getSparseSetIndex());
           }
@@ -859,6 +906,10 @@ void RAChaitinBriggs::buildInterferenceGraph(MachineFunction &mf) {
           DEBUG(dbgs() << "[use] op" << i << ": " << op << "\n");
           unsigned use_reg = op.getReg();
           if (TRI->isVirtualRegister(use_reg)) { // TODO: remove this check
+          //add to the usenum map; added by Lingyi
+            //DEBUG(dbgs() << "SPILL COST use reg is " << use_reg << "\n");
+            unsigned idx = TargetRegisterInfo::virtReg2Index(use_reg);
+            use_nestdepth[idx].push_back(loopDepth);
             LiveRegs.insert(LiveReg(use_reg));
           }
         }

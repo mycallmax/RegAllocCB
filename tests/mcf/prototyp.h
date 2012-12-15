@@ -24,6 +24,7 @@ Copyright (c) 1997-1999   ZIB Berlin   All Rights Reserved
 #endif
 #endif
 
+#undef _PROTO_
 
 #endif
 
