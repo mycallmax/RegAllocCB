@@ -36,11 +36,13 @@
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-
+#include "llvm/ADT/Statistic.h"
 #include <cstdlib>
 #include <queue>
 
 using namespace llvm;
+STATISTIC(NumStores, "Number of stores added");
+STATISTIC(NumLoads , "Number of loads added");
 
 static RegisterRegAlloc basicRegAlloc("spill_all", "Spill All register allocator",
                                       createSpillAllRegisterAllocator);

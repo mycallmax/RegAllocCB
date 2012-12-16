@@ -42,6 +42,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/SparseSet.h"
+#include "llvm/ADT/Statistic.h"
+
+
 
 #include <cstdlib>
 #include <queue>
@@ -51,6 +54,14 @@
 #include <math.h>
 
 using namespace llvm;
+
+
+STATISTIC(NumStores, "Number of stores added");
+STATISTIC(NumLoads , "Number of loads added");
+//STATISTIC(NumSpills, "Number of spill");
+
+
+
 
 static RegisterRegAlloc basicRegAlloc("chaitin_briggs", "Chaitin-Briggs register allocator",
                                       createChaitinBriggsRegisterAllocator);
@@ -536,6 +547,8 @@ void RAChaitinBriggs::kcolorbygraphprunning(unsigned K_color)
           }
           else if(tmp_spill_cost<spill_cost)
           {
+             DEBUG(dbgs() <<"Spilling Take effect \n");
+             
              spill_cost = tmp_spill_cost;
              cur_node = (*itmap).first;         
           }
@@ -693,6 +706,7 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
               
               //if(index_flag == 2)
               //  DEBUG(dbgs() << "next register--LLY  "  << "\n"); //24-T8
+              NumLoads++;
                   
               if(index_flag == 2)
                 //TII->loadRegFromStackSlot(*mi->getParent(), miItr, gp_class->getRegister(23), ss, trc,TRI);
@@ -711,6 +725,8 @@ void RAChaitinBriggs::assignvir2phy(MachineFunction &mf)
            if (hasDef) 
            {
               //TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(22), true, ss, trc, TRI);
+              //
+              NumStores++;
               TII->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr), gp_class->getRegister(Reserved_Phys_Splitting_1), true, ss, trc, TRI);
            }
 
