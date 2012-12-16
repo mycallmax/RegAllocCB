@@ -25,13 +25,8 @@
 \documentclass{article}
 
 % Package to generate and customize Algorithm as per ACM style
-\usepackage[ruled]{algorithm2e}
-\renewcommand{\algorithmcfname}{ALGORITHM}
-\SetAlFnt{\small}
-\SetAlCapFnt{\small}
-\SetAlCapNameFnt{\small}
-\SetAlCapHSkip{0pt}
-\IncMargin{-\parindent}
+\usepackage{algorithm, algorithmic}
+\renewcommand{\algorithmicforall}{\textbf{for each}}
 
 \usepackage{graphicx, enumerate} % Allows the inclusion of images
 \usepackage[margin=1in]{geometry}
@@ -52,11 +47,31 @@
 \section{Chaitin-Briggs Algorithm}
 Chaitin-Briggs algorithm\cite{Chaitin:1982} is a register allocation algorithm that utilizes graph coloring on the interference graph that are derived from the live ranges of registers, to allocate physical register for each virtual register. There are 4 major steps for this algorithm:\textbf{Live Range Computation}, \textbf{Interference Graph Construction}, \textbf{Spill Cost Calculation}, \textbf{Graph Coloring}. These steps are described in detail in the following.
 \subsection{Live Range Computation}
+\label{live_range}
 The Global Live Ranges of a virtual register \emph{vreg} is a partition of the references (definitions or uses) of \emph{vreg}. If one definition \emph{def} of \emph{vreg} is in the Live Range \emph{lr}, then all uses reachable from \emph{def} are also in \emph{lr}. If one use of \emph{vreg} is in the Live Range \emph{lr}, then all defs that reaches the use are also in \emph{lr}. Using the Live Variable Analysis, we can compute the def-use chain for each virtual register. And therefore we can compute the live ranges with \texttt{union-find} algorithm.
 \subsection{Interference Graph Construction}
-A register \emph{vreg1} is said to interfere with another register \emph{vreg2} if \emph{vreg1} is defined when \emph{vreg2} is live. Therefore, to show the interference among all registers, we can construct a interfernce graph where each node represents a register and each undirected edge represents whether the nodes on both ends interfere with each other. The algorithm for constructing the interfence graph is as follows.
-\subsection{Spill Cost Calculation}
-
+A register \emph{vreg1} is said to interfere with another register \emph{vreg2} if \emph{vreg1} is defined when \emph{vreg2} is live. Therefore, to show the interference among all registers, we can construct a interfernce graph where each node represents a register and each undirected edge represents whether the nodes on both ends interfere with each other. The algorithm for constructing the interfence graph is as follows. We need the result of Live Variable Analysis to be able to get LiveOut for each basic block.
+\begin{algorithm}[h]
+\scriptsize
+{$build\_interference\_graph(Func)$}
+\caption{Interference Graph Construction Algorithm}\label{alg:interferenceGraph}
+\begin{algorithmic}[1]
+\STATE{Intialize $IG$ to a graph with each register as a node and no edge}
+\FORALL{$BB \in Func$}
+  \STATE{$LiveNow = BB.getLiveOut()$}
+  \FORALL{$Instr: (a$ op $b \rightarrow c) \in BB$ (in the order from bottom to top)}
+    \STATE{IG.addEdge(c, a)}
+    \STATE{IG.addEdge(c, b)}
+    \STATE{$LiveNow.remove(c)$}
+    \STATE{$LiveNow.add(a)$}
+    \STATE{$LiveNow.add(b)$}
+  \ENDFOR
+ \ENDFOR
+\RETURN {$IG$}
+\end{algorithmic}
+\end{algorithm}
+\subsection{Spill Cost Estimation}
+The most important part in the Chaintin-Briggs algorithm is to estimate spill cost because a precise estimation of the cost will enable the algorithm to pick the right register to spill, which may greatly improve the performance. There are two ways to spill a register: one way is \emph{load/store}, which uses a stack slot to store the register after each definition and load the register before each use. Another way is \emph{rematerialization}, which recomputes the value in the register. Each way may incurs less spill cost than the other depending on the situations. Another factor of spill cost is the execution frequencies. We tend to spill registers that have least execution frequencies. We can weight a register by $10^{d}$ where $d$ is the loop depth or by branching probability. Or we can profile the program with some representative inputs to get better estimation of the execution frequencies.
 \subsection{Graph Coloring}
 %----------------------------------------------------------------------------------------
 %	SECTION 2

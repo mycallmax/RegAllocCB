@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-1.40.10 (TeX Live 2009/Debian) (format=pdflatex 2012.10.10)  15 DEC 2012 20:59
+This is pdfTeX, Version 3.1415926-1.40.10 (TeX Live 2009/Debian) (format=pdflatex 2012.10.10)  15 DEC 2012 21:43
 entering extended mode
  %&-line parsing enabled.
 **lab_report_1.tex
@@ -28,63 +28,42 @@ File: size10.clo 2007/10/19 v1.4h Standard LaTeX file (size option)
 \abovecaptionskip=\skip41
 \belowcaptionskip=\skip42
 \bibindent=\dimen102
-) (./algorithm2e.sty
-Package: algorithm2e 2008/00/00 v3.10 algorithms environments
-\c@AlgoLine=\count87
+)
+(/usr/share/texmf-texlive/tex/latex/algorithms/algorithm.sty
+Package: algorithm 2009/08/24 v0.1 Document Style `algorithm' - floating enviro
+nment
 
+(/usr/share/texmf-texlive/tex/latex/float/float.sty
+Package: float 2001/11/08 v1.3d Float enhancements (AL)
+\c@float@type=\count87
+\float@exts=\toks14
+\float@box=\box26
+\@float@everytoks=\toks15
+\@floatcapt=\box27
+)
 (/usr/share/texmf-texlive/tex/latex/base/ifthen.sty
 Package: ifthen 2001/05/26 v1.1c Standard LaTeX ifthen package (DPC)
 )
-(/usr/share/texmf-texlive/tex/latex/tools/xspace.sty
-Package: xspace 2006/05/08 v1.12 Space after command names (DPC,MH)
+\@float@every@algorithm=\toks16
+\c@algorithm=\count88
 )
-(/usr/share/texmf-texlive/tex/latex/ltxmisc/relsize.sty
-Package: relsize 2003/07/04 ver 3.1
-)
-********************************************************
-Package `algorithm2e' Release 4.01 -- december 14 2009 --
-- algorithm2e-announce@lirmm.fr mailing list for announcement about releases
-- algorithm2e-discussion@lirmm.fr mailing list for discussion about package
-subscribe by emailing sympa@lirmm.fr with 'subscribe <list> <firstname name>'
-- Author: Christophe Fiorio (fiorio@lirmm.fr)
-********************************************************
-\skiptotal=\skip43
-\skiplinenumber=\skip44
-\skiprule=\skip45
-\skiphlne=\skip46
-\skiptext=\skip47
-\skiplength=\skip48
-\algomargin=\skip49
-\skipalgocfslide=\skip50
-\algowidth=\dimen103
-\inoutsize=\dimen104
-\inoutline=\dimen105
-\interspacetitleruled=\dimen106
-\interspacealgoruled=\dimen107
-\interspacetitleboxruled=\dimen108
-\algocf@inoutbox=\box26
-\algocf@inputbox=\box27
-\AlCapSkip=\skip51
-\AlCapHSkip=\skip52
-\algocf@nlbox=\box28
-\algocf@hangingbox=\box29
-\algocf@capbox=\box30
-\algoheightruledefault=\skip53
-\algoheightrule=\skip54
-\algotitleheightruledefault=\skip55
-\algotitleheightrule=\skip56
-\c@algocfline=\count88
-\c@algocfproc=\count89
-\c@algocf=\count90
-\algocf@algoframe=\box31
-\algocf@algobox=\box32
-) (/usr/share/texmf-texlive/tex/latex/graphics/graphicx.sty
-Package: graphicx 1999/02/16 v1.0f Enhanced LaTeX Graphics (DPC,SPQR)
+(/usr/share/texmf-texlive/tex/latex/algorithms/algorithmic.sty
+Package: algorithmic 2009/08/24 v0.1 Document Style `algorithmic'
 
 (/usr/share/texmf-texlive/tex/latex/graphics/keyval.sty
 Package: keyval 1999/03/16 v1.13 key=value parser (DPC)
-\KV@toks@=\toks14
+\KV@toks@=\toks17
 )
+\c@ALC@unique=\count89
+\c@ALC@line=\count90
+\c@ALC@rem=\count91
+\c@ALC@depth=\count92
+\ALC@tlm=\skip43
+\algorithmicindent=\skip44
+)
+(/usr/share/texmf-texlive/tex/latex/graphics/graphicx.sty
+Package: graphicx 1999/02/16 v1.0f Enhanced LaTeX Graphics (DPC,SPQR)
+
 (/usr/share/texmf-texlive/tex/latex/graphics/graphics.sty
 Package: graphics 2009/02/05 v1.0o Standard LaTeX Graphics (DPC,SPQR)
 
@@ -98,14 +77,14 @@ Package graphics Info: Driver file: pdftex.def on input line 91.
 
 (/usr/share/texmf-texlive/tex/latex/pdftex-def/pdftex.def
 File: pdftex.def 2010/03/12 v0.04p Graphics/color for pdfTeX
-\Gread@gobject=\count91
+\Gread@gobject=\count93
 ))
-\Gin@req@height=\dimen109
-\Gin@req@width=\dimen110
+\Gin@req@height=\dimen103
+\Gin@req@width=\dimen104
 )
 (/usr/share/texmf-texlive/tex/latex/tools/enumerate.sty
 Package: enumerate 1999/03/05 v3.00 enumerate extensions (DPC)
-\@enLab=\toks15
+\@enLab=\toks18
 )
 (/usr/share/texmf-texlive/tex/latex/geometry/geometry.sty
 Package: geometry 2008/12/21 v4.2 Page Geometry
@@ -118,43 +97,43 @@ Package ifpdf Info: pdfTeX in pdf mode detected.
 Package: ifvtex 2008/11/04 v1.4 Switches for detecting VTeX and its modes (HO)
 Package ifvtex Info: VTeX not detected.
 )
-\Gm@cnth=\count92
-\Gm@cntv=\count93
-\c@Gm@tempcnt=\count94
-\Gm@bindingoffset=\dimen111
-\Gm@wd@mp=\dimen112
-\Gm@odd@mp=\dimen113
-\Gm@even@mp=\dimen114
-\Gm@dimlist=\toks16
+\Gm@cnth=\count94
+\Gm@cntv=\count95
+\c@Gm@tempcnt=\count96
+\Gm@bindingoffset=\dimen105
+\Gm@wd@mp=\dimen106
+\Gm@odd@mp=\dimen107
+\Gm@even@mp=\dimen108
+\Gm@dimlist=\toks19
 
 (/usr/share/texmf-texlive/tex/xelatex/xetexconfig/geometry.cfg))
 (./lab_report_1.aux)
 \openout1 = `lab_report_1.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 44.
-LaTeX Font Info:    ... okay on input line 44.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 44.
-LaTeX Font Info:    ... okay on input line 44.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 44.
-LaTeX Font Info:    ... okay on input line 44.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 44.
-LaTeX Font Info:    ... okay on input line 44.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 44.
-LaTeX Font Info:    ... okay on input line 44.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 44.
-LaTeX Font Info:    ... okay on input line 44.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
  (/usr/share/texmf-texlive/tex/context/base/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count95
-\scratchdimen=\dimen115
-\scratchbox=\box33
-\nofMPsegments=\count96
-\nofMParguments=\count97
-\everyMPshowfont=\toks17
-\MPscratchCnt=\count98
-\MPscratchDim=\dimen116
-\MPnumerator=\count99
-\everyMPtoPDFconversion=\toks18
+\scratchcounter=\count97
+\scratchdimen=\dimen109
+\scratchbox=\box28
+\nofMPsegments=\count98
+\nofMParguments=\count99
+\everyMPshowfont=\toks20
+\MPscratchCnt=\count100
+\MPscratchDim=\dimen110
+\MPnumerator=\count101
+\everyMPtoPDFconversion=\toks21
 )
 *geometry auto-detecting driver*
 *geometry detected driver: pdftex*
@@ -198,33 +177,42 @@ driver: pdftex
 (1in=72.27pt, 1cm=28.45pt)
 -----------------------
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <12> on input line 46.
+(Font)              <12> on input line 41.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <8> on input line 46.
+(Font)              <8> on input line 41.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <6> on input line 46.
-(./lab_report_1.bbl [1
+(Font)              <6> on input line 41.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <7> on input line 56.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <5> on input line 56.
+[1
 
-{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}])
+{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] (./lab_report_1.bbl)
 [2] (./lab_report_1.aux) ) 
 Here is how much of TeX's memory you used:
- 2481 strings out of 493848
- 32707 string characters out of 1152822
- 107437 words of memory out of 3000000
- 5772 multiletter control sequences out of 15000+50000
- 8409 words of font info for 30 fonts, out of 3000000 for 9000
+ 1620 strings out of 493848
+ 21229 string characters out of 1152822
+ 80405 words of memory out of 3000000
+ 4908 multiletter control sequences out of 15000+50000
+ 8719 words of font info for 31 fonts, out of 3000000 for 9000
  714 hyphenation exceptions out of 8191
- 25i,6n,32p,592b,221s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 25i,6n,32p,942b,502s stack positions out of 5000i,500n,10000p,200000b,50000s
 </usr/share/texmf-texlive/fonts/type1/public/amsfonts
 /cm/cmbx10.pfb></usr/share/texmf-texlive/fonts/type1/public/amsfonts/cm/cmbx12.
-pfb></usr/share/texmf-texlive/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/sh
-are/texmf-texlive/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texmf-te
-xlive/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texmf-texlive/fonts/
-type1/public/amsfonts/cm/cmti10.pfb></usr/share/texmf-texlive/fonts/type1/publi
-c/amsfonts/cm/cmtt10.pfb>
-Output written on lab_report_1.pdf (2 pages, 105750 bytes).
+pfb></usr/share/texmf-texlive/fonts/type1/public/amsfonts/cm/cmbx7.pfb></usr/sh
+are/texmf-texlive/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texmf-t
+exlive/fonts/type1/public/amsfonts/cm/cmmi7.pfb></usr/share/texmf-texlive/fonts
+/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texmf-texlive/fonts/type1/publi
+c/amsfonts/cm/cmr12.pfb></usr/share/texmf-texlive/fonts/type1/public/amsfonts/c
+m/cmr17.pfb></usr/share/texmf-texlive/fonts/type1/public/amsfonts/cm/cmr7.pfb><
+/usr/share/texmf-texlive/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/te
+xmf-texlive/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share/texmf-texlive/
+fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/texmf-texlive/fonts/type1
+/public/amsfonts/cm/cmtt10.pfb>
+Output written on lab_report_1.pdf (2 pages, 170106 bytes).
 PDF statistics:
- 37 PDF objects out of 1000 (max. 8388607)
+ 61 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
  1 words of extra memory for PDF output out of 10000 (max. 10000000)
 
