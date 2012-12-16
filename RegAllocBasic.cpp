@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the RASpillAll function pass, which provides a minimal
+// This file defines the RABasic function pass, which provides a minimal
 // implementation of the basic register allocator.
 //
 //===----------------------------------------------------------------------===//
@@ -36,13 +36,14 @@
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+
 #include <cstdlib>
 #include <queue>
 
 using namespace llvm;
 
-static RegisterRegAlloc basicRegAlloc("spill_all", "Spill All register allocator",
-                                      createSpillAllRegisterAllocator);
+static RegisterRegAlloc basicRegAlloc("basic", "basic register allocator",
+                                      createBasicRegisterAllocator);
 
 namespace {
   struct CompSpillWeight {
@@ -53,12 +54,12 @@ namespace {
 }
 
 namespace {
-/// RASpillAll provides a minimal implementation of the basic register allocation
+/// RABasic provides a minimal implementation of the basic register allocation
 /// algorithm. It prioritizes live virtual registers by spill weight and spills
 /// whenever a register is unavailable. This is not practical in production but
 /// provides a useful baseline both for measuring other allocators and comparing
 /// the speed of the basic algorithm against other styles of allocators.
-class RASpillAll : public MachineFunctionPass, public RegAllocBase
+class RABasic : public MachineFunctionPass, public RegAllocBase
 {
   // context
   MachineFunction *MF;
@@ -73,14 +74,14 @@ class RASpillAll : public MachineFunctionPass, public RegAllocBase
   BitVector UsableRegs;
 
 public:
-  RASpillAll();
+  RABasic();
 
   /// Return the pass name.
   virtual const char* getPassName() const {
-    return "Spill All Register Allocator";
+    return "Basic Register Allocator";
   }
 
-  /// RASpillAll analysis usage.
+  /// RABasic analysis usage.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
   virtual void releaseMemory();
@@ -116,11 +117,11 @@ public:
   static char ID;
 };
 
-char RASpillAll::ID = 0;
+char RABasic::ID = 0;
 
 } // end anonymous namespace
 
-RASpillAll::RASpillAll(): MachineFunctionPass(ID) {
+RABasic::RABasic(): MachineFunctionPass(ID) {
   initializeLiveDebugVariablesPass(*PassRegistry::getPassRegistry());
   initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
   initializeSlotIndexesPass(*PassRegistry::getPassRegistry());
@@ -134,7 +135,7 @@ RASpillAll::RASpillAll(): MachineFunctionPass(ID) {
   initializeLiveRegMatrixPass(*PassRegistry::getPassRegistry());
 }
 
-void RASpillAll::getAnalysisUsage(AnalysisUsage &AU) const {
+void RABasic::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesCFG();
   AU.addRequired<AliasAnalysis>();
   AU.addPreserved<AliasAnalysis>();
@@ -157,7 +158,7 @@ void RASpillAll::getAnalysisUsage(AnalysisUsage &AU) const {
   MachineFunctionPass::getAnalysisUsage(AU);
 }
 
-void RASpillAll::releaseMemory() {
+void RABasic::releaseMemory() {
   SpillerInstance.reset(0);
 }
 
@@ -165,7 +166,7 @@ void RASpillAll::releaseMemory() {
 // Spill or split all live virtual registers currently unified under PhysReg
 // that interfere with VirtReg. The newly spilled or split live intervals are
 // returned by appending them to SplitVRegs.
-bool RASpillAll::spillInterferences(LiveInterval &VirtReg, unsigned PhysReg,
+bool RABasic::spillInterferences(LiveInterval &VirtReg, unsigned PhysReg,
                                  SmallVectorImpl<LiveInterval*> &SplitVRegs) {
   // Record each interference and determine if all are spillable before mutating
   // either the union or live intervals.
@@ -219,64 +220,47 @@ bool RASpillAll::spillInterferences(LiveInterval &VirtReg, unsigned PhysReg,
 // |vregs| * |machineregs|. And since the number of interference tests is
 // minimal, there is no value in caching them outside the scope of
 // selectOrSplit().
-unsigned RASpillAll::selectOrSplit(LiveInterval &VirtReg,
+unsigned RABasic::selectOrSplit(LiveInterval &VirtReg,
                                 SmallVectorImpl<LiveInterval*> &SplitVRegs) {
-//  // Populate a list of physical register spill candidates.
-//  SmallVector<unsigned, 8> PhysRegSpillCands;
-//
-//  // Check for an available register in this class.
-//  AllocationOrder Order(VirtReg.reg, *VRM, RegClassInfo);
-//  while (unsigned PhysReg = Order.next()) {
-//    // Check for interference in PhysReg
-//    switch (Matrix->checkInterference(VirtReg, PhysReg)) {
-//    case LiveRegMatrix::IK_Free:
-//      // PhysReg is available, allocate it.
-//      return PhysReg;
-//
-//    case LiveRegMatrix::IK_VirtReg:
-//      // Only virtual registers in the way, we may be able to spill them.
-//      PhysRegSpillCands.push_back(PhysReg);
-//      continue;
-//
-//    default:
-//      // RegMask or RegUnit interference.
-//      continue;
-//    }
-//  }
-//
-//  // Try to spill another interfering reg with less spill weight.
-//  for (SmallVectorImpl<unsigned>::iterator PhysRegI = PhysRegSpillCands.begin(),
-//       PhysRegE = PhysRegSpillCands.end(); PhysRegI != PhysRegE; ++PhysRegI) {
-//    if (!spillInterferences(VirtReg, *PhysRegI, SplitVRegs))
-//      continue;
-//
-//    assert(!Matrix->checkInterference(VirtReg, *PhysRegI) &&
-//           "Interference after spill.");
-//    // Tell the caller to allocate to this newly freed physical register.
-//    return *PhysRegI;
-//  }
+  // Populate a list of physical register spill candidates.
+  SmallVector<unsigned, 8> PhysRegSpillCands;
+
+  // Check for an available register in this class.
+  AllocationOrder Order(VirtReg.reg, *VRM, RegClassInfo);
+  while (unsigned PhysReg = Order.next()) {
+    // Check for interference in PhysReg
+    switch (Matrix->checkInterference(VirtReg, PhysReg)) {
+    case LiveRegMatrix::IK_Free:
+      // PhysReg is available, allocate it.
+      return PhysReg;
+
+    case LiveRegMatrix::IK_VirtReg:
+      // Only virtual registers in the way, we may be able to spill them.
+      PhysRegSpillCands.push_back(PhysReg);
+      continue;
+
+    default:
+      // RegMask or RegUnit interference.
+      continue;
+    }
+  }
+
+  // Try to spill another interfering reg with less spill weight.
+  for (SmallVectorImpl<unsigned>::iterator PhysRegI = PhysRegSpillCands.begin(),
+       PhysRegE = PhysRegSpillCands.end(); PhysRegI != PhysRegE; ++PhysRegI) {
+    if (!spillInterferences(VirtReg, *PhysRegI, SplitVRegs))
+      continue;
+
+    assert(!Matrix->checkInterference(VirtReg, *PhysRegI) &&
+           "Interference after spill.");
+    // Tell the caller to allocate to this newly freed physical register.
+    return *PhysRegI;
+  }
 
   // No other spill candidates were found, so spill the current VirtReg.
   DEBUG(dbgs() << "spilling: " << VirtReg << '\n');
-  if (!VirtReg.isSpillable()) {
-    // Check for an available register in this class.
-    AllocationOrder Order(VirtReg.reg, *VRM, RegClassInfo);
-    while (unsigned PhysReg = Order.next()) {
-      // Check for interference in PhysReg
-      switch (Matrix->checkInterference(VirtReg, PhysReg)) {
-      case LiveRegMatrix::IK_Free:
-        // PhysReg is available, allocate it.
-        return PhysReg;
-
-      case LiveRegMatrix::IK_VirtReg:
-      default:
-        // RegMask or RegUnit interference.
-        continue;
-      }
-    }
+  if (!VirtReg.isSpillable())
     return ~0u;
-  }
-
   LiveRangeEdit LRE(&VirtReg, SplitVRegs, *MF, *LIS, VRM);
   spiller().spill(LRE);
 
@@ -285,7 +269,7 @@ unsigned RASpillAll::selectOrSplit(LiveInterval &VirtReg,
   return 0;
 }
 
-bool RASpillAll::runOnMachineFunction(MachineFunction &mf) {
+bool RABasic::runOnMachineFunction(MachineFunction &mf) {
   DEBUG(dbgs() << "********** BASIC REGISTER ALLOCATION **********\n"
                << "********** Function: "
                << mf.getName() << '\n');
@@ -294,7 +278,7 @@ bool RASpillAll::runOnMachineFunction(MachineFunction &mf) {
   RegAllocBase::init(getAnalysis<VirtRegMap>(),
                      getAnalysis<LiveIntervals>(),
                      getAnalysis<LiveRegMatrix>());
-  SpillerInstance.reset(createSpiller(*this, *MF, *VRM));
+  SpillerInstance.reset(createInlineSpiller(*this, *MF, *VRM));
 
   allocatePhysRegs();
 
@@ -305,7 +289,7 @@ bool RASpillAll::runOnMachineFunction(MachineFunction &mf) {
   return true;
 }
 
-FunctionPass* llvm::createSpillAllRegisterAllocator()
+FunctionPass* llvm::createBasicRegisterAllocator()
 {
-  return new RASpillAll();
+  return new RABasic();
 }

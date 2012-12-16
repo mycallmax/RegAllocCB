@@ -55,7 +55,6 @@
 
 using namespace llvm;
 
-
 STATISTIC(NumStores, "Number of stores added");
 STATISTIC(NumLoads , "Number of loads added");
 //STATISTIC(NumSpills, "Number of spill");
@@ -209,7 +208,7 @@ char RAChaitinBriggs::ID = 0;
 //unsigned  RAChaitinBriggs::Allocate_Phys_Start_index= 10; 
 unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_1= 8;
 unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_2= 9;
-unsigned  RAChaitinBriggs::K_color = 14;
+unsigned  RAChaitinBriggs::K_color = 2;
 
 } // end anonymous namespace
 

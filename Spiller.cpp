@@ -25,7 +25,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/Statistic.h"
 
+STATISTIC(NumStores, "Number of stores in Trivial Spiller");
+STATISTIC(NumLoads , "Number of loads in Trivial Spiller");
 using namespace llvm;
 
 namespace {
@@ -133,6 +136,7 @@ protected:
       // Insert reload if necessary.
       MachineBasicBlock::iterator miItr(mi);
       if (hasUse) {
+        ++NumLoads;
         tii->loadRegFromStackSlot(*mi->getParent(), miItr, newLI->reg, ss, trc,
                                   tri);
         MachineInstr *loadInstr(prior(miItr));
@@ -146,6 +150,7 @@ protected:
 
       // Insert store if necessary.
       if (hasDef) {
+        ++NumStores;
         tii->storeRegToStackSlot(*mi->getParent(), llvm::next(miItr),newLI->reg,
                                  true, ss, trc, tri);
         MachineInstr *storeInstr(llvm::next(miItr));
