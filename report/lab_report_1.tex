@@ -24,8 +24,17 @@
 
 \documentclass{article}
 
-\usepackage{graphicx, enumerate} % Allows the inclusion of images
+% Package to generate and customize Algorithm as per ACM style
+\usepackage[ruled]{algorithm2e}
+\renewcommand{\algorithmcfname}{ALGORITHM}
+\SetAlFnt{\small}
+\SetAlCapFnt{\small}
+\SetAlCapNameFnt{\small}
+\SetAlCapHSkip{0pt}
+\IncMargin{-\parindent}
 
+\usepackage{graphicx, enumerate} % Allows the inclusion of images
+\usepackage[margin=1in]{geometry}
 \title{Unit Project Report \\ CS 425 Compiler Construction} % Title
 
 \author{Lingyi Liu (liu187), Kuan-Yu Tseng (ktseng2)} % Author name
@@ -45,22 +54,15 @@ Chaitin-Briggs algorithm\cite{Chaitin:1982} is a register allocation algorithm t
 \subsection{Live Range Computation}
 The Global Live Ranges of a virtual register \emph{vreg} is a partition of the references (definitions or uses) of \emph{vreg}. If one definition \emph{def} of \emph{vreg} is in the Live Range \emph{lr}, then all uses reachable from \emph{def} are also in \emph{lr}. If one use of \emph{vreg} is in the Live Range \emph{lr}, then all defs that reaches the use are also in \emph{lr}. Using the Live Variable Analysis, we can compute the def-use chain for each virtual register. And therefore we can compute the live ranges with \texttt{union-find} algorithm.
 \subsection{Interference Graph Construction}
-
+A register \emph{vreg1} is said to interfere with another register \emph{vreg2} if \emph{vreg1} is defined when \emph{vreg2} is live. Therefore, to show the interference among all registers, we can construct a interfernce graph where each node represents a register and each undirected edge represents whether the nodes on both ends interfere with each other. The algorithm for constructing the interfence graph is as follows.
 \subsection{Spill Cost Calculation}
+
 \subsection{Graph Coloring}
 %----------------------------------------------------------------------------------------
 %	SECTION 2
 %----------------------------------------------------------------------------------------
 
 \section{Heuristic Approach for Spilling}
-
-\begin{tabular}{ll}
-Mass of empty crucible & 7.28 g\\
-Mass of crucible and magnesium before heating & 8.59 g\\
-Mass of crucible and magnesium oxide after heating & 9.46 g\\
-Balance used & \#4\\
-Magnesium from sample bottle & \#1
-\end{tabular}
 
 %----------------------------------------------------------------------------------------
 %	SECTION 3
@@ -70,16 +72,6 @@ Magnesium from sample bottle & \#1
 \subsection{What is Working?}
 \subsection{What is Not Working?}
 \subsection{Potential Improvement}
-\begin{tabular}{ll}
-Mass of magnesium metal & = 8.59 g - 7.28 g\\
-& = 1.31 g\\
-Mass of magnesium oxide & = 9.46 g - 7.28 g\\
-& = 2.18 g\\
-Mass of oxygen & = 2.18 g - 1.31 g\\
-& = 0.87 g
-\end{tabular}\\
-Because of this reaction, the required ratio is the atomic weight of magnesium: 16.00g of oxygen as experimental mass of Mg: experimental mass of oxygen or $\frac{x}{1.31}=\frac{16}{0.87}$ from which, atomic weight of magnesium = 16.00 $\times \frac{1.31}{0.87}$ = 24.1 = 24 g/mol (to two significant figures).
-
 %----------------------------------------------------------------------------------------
 %	SECTION 4
 %----------------------------------------------------------------------------------------
