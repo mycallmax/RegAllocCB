@@ -208,7 +208,7 @@ char RAChaitinBriggs::ID = 0;
 //unsigned  RAChaitinBriggs::Allocate_Phys_Start_index= 10; 
 unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_1= 8;
 unsigned  RAChaitinBriggs::Reserved_Phys_Splitting_2= 9;
-unsigned  RAChaitinBriggs::K_color = 2;
+unsigned  RAChaitinBriggs::K_color = 16;
 
 } // end anonymous namespace
 
@@ -496,6 +496,8 @@ void RAChaitinBriggs::kcolorbygraphprunning(unsigned K_color)
    Color_2_PhysReg[11] =13;  //T5
    Color_2_PhysReg[12] =14;  //T6
    Color_2_PhysReg[13] =15;  //T7
+   Color_2_PhysReg[14] =24;  //T8
+   Color_2_PhysReg[15] =25;  //T9
 
    //make another copy of IG for future color step 
    DEBUG(dbgs() << "Start to color all registers \n");
@@ -768,7 +770,8 @@ void RAChaitinBriggs::manageregisterXcall(MachineFunction &mf)
        unsigned idxPhys = Color_Result[idxVirt];
        DEBUG(dbgs()<<"The mapped Phys regiser is  " << idxPhys  << "\n");
        //determine whether the Phys register is non preserved
-       if((idxPhys!=K_color)&&(Color_2_PhysReg[idxPhys]<=15) && (Color_2_PhysReg[idxPhys]>=10))
+       //if((idxPhys!=K_color)&&(Color_2_PhysReg[idxPhys]<=15) && (Color_2_PhysReg[idxPhys]>=10))
+       if((idxPhys!=K_color)&&(((Color_2_PhysReg[idxPhys]<=15) && (Color_2_PhysReg[idxPhys]>=10))||(Color_2_PhysReg[idxPhys]==24)||(Color_2_PhysReg[idxPhys]==25)))
        {
           MachineBasicBlock::iterator miItr(MI);
           DEBUG(dbgs()<<"Need to save and restore registers "  << "\n");
